@@ -1,0 +1,8 @@
+body {
+    padding: 5em;
+}
+
+svg {
+    min-width: 600px;
+    min-height: 600px;
+}
