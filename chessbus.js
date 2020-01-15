@@ -95,36 +95,71 @@ let common_piece_behavior = {
     "set stroke": function(value) {
         this["get element"]().setAttribute("stroke", value);
     },
-    "get movement in an empty field": function () {
+    "get movement in an empty field": function() {
         return this._empty_diagram
     },
     "set movement in an empty field": function (value) {
         this._empty_diagram = value;
     },
-    "get movement in an enemy field": function () {
+    "get movement in an enemy field": function() {
         return this._enemy_diagram;
     },
-    "get movement in an enemy field": function () {
+    "get movement in an enemy field": function() {
         return this._enemy_diagram;
     },
-    "set movement in an enemy field": function (value) {
+    "set movement in an enemy field": function(value) {
         this._enemy_diagram = value;
     },
-    "move": function () {
+    "move": function() {
 
     },
-    "capture": function () {
+    "capture": function() {
 
-    }
+    } 
 }
 
 Object.setPrototypeOf(common_piece_behavior, common_behavior);
 
 let common_tile_behavior = {
-
+    // object data properties:
+    // bool _mousedown
+    "mouse down": function(event) {
+        if (event.which === 3) {
+            this._mousedown = true;
+        } else {
+            temp["clear highlights"]();
+        }
+    },
+    "mouse up": function(event) {
+        if (event.which === 3) {
+            if (this._mousedown === true) {
+                this["highlight"]();
+                this._mousedown = false;
+            }
+        }
+    },
+    "highlight": function() {
+        let original_fill = this["get fill"]();
+        this["set fill"]("#ffff00");
+        temp["highlights list"].push(() => {
+            this["set fill"](original_fill);
+        });
+    }
 }
 
 Object.setPrototypeOf(common_tile_behavior, common_behavior);
+
+let temp = {
+    "highlights list": [],
+    "clear highlights": function() {
+        let self = this;
+        if (self["highlights list"].length !== 0) {
+            for (let i = 0; i < self["highlights list"].length; i += 1) {
+                self["highlights list"][i]();
+            }
+        }
+    }
+}
 
 /* chessbus specific functions */
 
@@ -146,7 +181,14 @@ function place_tiles({diagram, rows, columns, svg, width = 75, height = 75}) {
         temp_tile["set coordinate"]({"x": x, "y": y});
         temp_tile["set width"](width);
         temp_tile["set height"](height);
-        temp_tile["set fill"](diagram[i])
+        temp_tile["set fill"](diagram[i]);
+
+        temp_tile["get element"]().addEventListener("mousedown", 
+            temp_tile["mouse down"].bind(temp_tile)
+        );
+        temp_tile["get element"]().addEventListener("mouseup", 
+            temp_tile["mouse up"].bind(temp_tile)
+        );
 
         svg.appendChild(temp_tile["get element"]());
 
