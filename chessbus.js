@@ -59,7 +59,11 @@ let common_piece_behavior = {
         return this["get element"]().getAttribute("transform");
     },
     "set transform": function(value) {
-        this["get element"]().setAttribute("transform", value);
+        let transform = "";
+        for (let v in value) {
+            transform += `${v}(${value[v]}) `;
+        }
+        this["get element"]().setAttribute("transform", transform);
     },
     "get d": function() {
         return this["get element"]().getAttribute("d");
@@ -125,8 +129,8 @@ Object.setPrototypeOf(common_tile_behavior, common_behavior);
 /* chessbus specific functions */
 
 // unpure
-function place_tiles(diagram, rows, columns, svg, width = 75, height = 75) {
-    let r = rows;
+function place_tiles({diagram, rows, columns, svg, width = 75, height = 75}) {
+    let r = 0;
     let c = 0;
     let x = 0;
     let y = 0;
@@ -154,21 +158,24 @@ function place_tiles(diagram, rows, columns, svg, width = 75, height = 75) {
         } else {
             c = 0;
             x = 0;
-            r -= 1;
+            r += 1;
             y += 75;
         }
     }
 }
 
 // unpure
-function place_piece_on_tile(piece, svg) {
+function place_piece_on_tile(piece, svg, transform) {
     for (let tile in boardtop.tiles) {
         if (boardtop.tiles[tile]["get position"]()["row"] == piece["get position"]()["row"] &&
             boardtop.tiles[tile]["get position"]()["column"] == piece["get position"]()["column"]) {
 
             piece["set coordinate"](boardtop.tiles[tile]["get coordinate"]());
-            
-            let g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            piece["set transform"]({
+                "translate": `${20 + piece["get position"]()["column"] * 75} 
+                    ${10 + piece["get position"]()["row"] * 75}`,
+                "matrix": transform["matrix"]
+            });
                 
             svg.appendChild(piece["get element"]());
         }
@@ -176,8 +183,8 @@ function place_piece_on_tile(piece, svg) {
 }
 
 // unpure
-function place_pieces(name, properties, initial_position, 
-    empty_field, enemy_field, jump, svg, width = 75, height = 75) {
+function place_pieces({name, properties, initial_position, 
+    empty_field, enemy_field, jump, svg, rows, width = 75, height = 75}) {
 
     let get_id = setup_iding();
     let path;
@@ -186,7 +193,6 @@ function place_pieces(name, properties, initial_position,
             let temp_piece = Object.create(common_piece_behavior);      
             path = document.createElementNS("http://www.w3.org/2000/svg", "path");
             temp_piece["set element"](path);
-            // temp_piece["set transform"](properties["transform"]);
             temp_piece["set d"](properties["d"]);
             temp_piece["set stroke-linecap"](properties["stroke-linecap"]);
             temp_piece["set stroke-linejoin"](properties["stroke-linejoin"]);
@@ -195,9 +201,9 @@ function place_pieces(name, properties, initial_position,
             temp_piece["set stroke"](properties["stroke"]);
             temp_piece["set width"](width);
             temp_piece["set height"](height);
-            temp_piece["set position"]({"row": position["row"], "column": position["column"]});
+            temp_piece["set position"]({"row": mirror_row(position["row"], rows), "column": position["column"]});
 
-            place_piece_on_tile(temp_piece, svg);
+            place_piece_on_tile(temp_piece, svg, properties["transform"]);
 
             boardtop.pieces[name + " " + get_id()] = temp_piece;
         } 
@@ -249,6 +255,10 @@ function check_if_legal(from, to, diagram) {
     }
 }
 
+// pure
+function mirror_row(row, total_rows) {
+    return row * -1 + total_rows;
+}
 
 /* utility functions */
 
@@ -262,9 +272,9 @@ function clone(object) {
 /* chessbus object */
 
 var configuration = {
+    "number of rows": 7,
+    "number of columns": 7,
     "tiles": {
-        "number of rows": 7,
-        "number of columns": 7,
         "tiles configuration": [
             "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000",
             "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0",
@@ -279,7 +289,10 @@ var configuration = {
     "pieces": {
         "pawn": {
             "properties": {
-                "transform": "translate(0 3) matrix(0.0346349 0 0 0.0346349 15.8365 0.83333)",
+                "transform": {
+                    // "translate": "20 10",
+                    "matrix": "0.0946349 0 0 0.0946349 15.8365 0.83333"
+                },
                 "d": `M -163.2096622851282 574.0452144019284 C -182.23511758800083 
                     576.940207322642 -209.56906999149857 558.868616650869 -185.48293754452283 
                     542.4452969616261 C -165.10000376732881 531.7650342200843 -184.65928202843486 
@@ -363,24 +376,25 @@ class chessBus extends HTMLElement {
         this.innerHTML = "<svg></svg>";
 
         // placing the tiles
-        place_tiles(
-            this.config["tiles"]["tiles configuration"],
-            this.config["tiles"]["number of rows"],
-            this.config["tiles"]["number of columns"],
-            this.querySelector("svg")
-        );
+        place_tiles({
+            diagram: this.config["tiles"]["tiles configuration"],
+            rows: this.config["number of rows"],
+            columns: this.config["number of columns"],
+            svg: this.querySelector("svg")
+        });
 
         // placing pieces
         for (let piece in this.config["pieces"]) {
-            place_pieces(
-                piece,
-                this.config["pieces"][piece]["properties"],
-                this.config["pieces"][piece]["initial positions"],
-                this.config["pieces"][piece]["movement"]["movement in an empty field"],
-                this.config["pieces"][piece]["movement"]["movement in an enemy field"],
-                this.config["pieces"][piece]["can jump"],
-                this.querySelector("svg")
-            );
+            place_pieces({
+                name: piece,
+                properties: this.config["pieces"][piece]["properties"],
+                initial_position: this.config["pieces"][piece]["initial positions"],
+                empty_field: this.config["pieces"][piece]["movement"]["movement in an empty field"],
+                enemy_field: this.config["pieces"][piece]["movement"]["movement in an enemy field"],
+                jump: this.config["pieces"][piece]["can jump"],
+                svg: this.querySelector("svg"),
+                rows: this.config["number of rows"]
+            });
         }
     }
 
