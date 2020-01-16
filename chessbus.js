@@ -1,19 +1,21 @@
 "use strict";
 
+let CHESSBUS = document.querySelector("chess-bus");
+
 let boardtop = {
     "tiles": {},
     "pieces": {}
 }
 
 let common_behavior = {
-    "get element": function() {
+    "get element": function () {
         return this._element;
     },
-    "set element": function(value) {
+    "set element": function (value) {
         this._element = value;
     },
     "get position": function () {
-        let position = { 
+        let position = {
             "row": this["get element"]().getAttribute("row"),
             "column": this["get element"]().getAttribute("column")
         }
@@ -24,7 +26,7 @@ let common_behavior = {
         this["get element"]().setAttribute("column", value["column"]);
     },
     "get coordinate": function () {
-        let coordinate = { 
+        let coordinate = {
             "x": this["get element"]().getAttribute("x"),
             "y": this["get element"]().getAttribute("y")
         }
@@ -34,88 +36,190 @@ let common_behavior = {
         this["get element"]().setAttribute("x", value["x"]);
         this["get element"]().setAttribute("y", value["y"]);
     },
-    "get width": function() {
+    "get width": function () {
         return this["get element"]().getAttribute("width");
     },
-    "set width": function(value) {
+    "set width": function (value) {
         this["get element"]().setAttribute("width", value);
     },
-    "get height": function() {
+    "get height": function () {
         return this["get element"]().getAttribute("height");
     },
-    "set height": function(value) {
+    "set height": function (value) {
         this["get element"]().setAttribute("height", value);
     },
-    "get fill": function() {
+    "get fill": function () {
         return this["get element"]().getAttribute("fill");
     },
-    "set fill": function(value) {
+    "set fill": function (value) {
         this["get element"]().setAttribute("fill", value);
     }
 }
 
 let common_piece_behavior = {
-    "get transform": function() {
-        return this["get element"]().getAttribute("transform");
+    // object data properties:
+    // bool _mousedown
+    "get transform": function () {
+        let context = this;
+        let transform = this["get element"]().getAttribute("transform");
+        return {
+            "toString": function () {
+                return transform;
+            },
+            "get translate": function () {
+                let translate = /translate\([\d|\s|\.|-|,]*\)/.exec(transform);
+                return translate !== null ? translate[0].split(/[\(|\)]/)[1]
+                    .split(/[\s|,]+/).map(function(e) { return parseFloat(e); }) 
+                    : undefined;
+            },
+            "set translate": function (value) {
+                let translate = /translate\([\d|\s|\.|-|,]*\)/.exec(transform);
+                context["get element"]().setAttribute("transform", 
+                    transform.replace(translate, `translate(${value.toString()})`)
+                );
+            },
+            "get matrix": function () {
+                let matrix = /matrix\([\d|\s|\.|-|,]*\)/.exec(transform);
+                return matrix !== null ? matrix[0].split(/[\(|\)]/)[1]
+                    .split(/[\s|,]+/).map(function(e) { return parseFloat(e); }) 
+                    : undefined;
+            },
+            "set matrix": function (value) {
+                let matrix = /matrix\([\d|\s|\.|-|,]*\)/.exec(transform);
+                context["get element"]().setAttribute("transform", 
+                    transform.replace(matrix, `matrix(${value.toString()})`)
+                );
+            },
+            "get scale": function () {
+                let scale = /scale\([\d|\s|\.|-|,]*\)/.exec(transform);
+                return scale !== null ? scale[0].split(/[\(|\)]/)[1]
+                    .split(/[\s|,]+/).map(function(e) { return parseFloat(e); }) 
+                    : undefined;
+            },
+            "set scale": function (value) {
+                let scale = /scale\([\d|\s|\.|-|,]*\)/.exec(transform);
+                context["get element"]().setAttribute("transform", 
+                    transform.replace(scale, `scale(${value.toString()})`)
+                );
+            },
+            "get rotate": function () {
+                let rotate = /rotate\([\d|\s|\.|-|,]*\)/.exec(transform);
+                return rotate !== null ? rotate[0].split(/[\(|\)]/)[1]
+                    .split(/[\s|,]+/).map(function(e) { return parseFloat(e); }) 
+                    : undefined;
+            },
+            "set rotate": function (value) {
+                let rotate = /rotate\([\d|\s|\.|-|,]*\)/.exec(transform);
+                context["get element"]().setAttribute("transform", 
+                    transform.replace(rotate, `rotate(${value.toString()})`)
+                );
+            },
+            "get skewX": function () {
+                let skewX = /skewX\([\d|\s|\.|-|,]*\)/.exec(transform);
+                return skewX !== null ? skewX[0].split(/[\(|\)]/)[1]
+                    .split(/[\s|,]+/).map(function(e) { return parseFloat(e); }) 
+                    : undefined;
+            },
+            "set skewX": function (value) {
+                let skewX = /skewX\([\d|\s|\.|-|,]*\)/.exec(transform);
+                context["get element"]().setAttribute("transform", 
+                    transform.replace(skewX, `skewX(${value.toString()})`)
+                );
+            },
+            "get skewY": function () {
+                let skewY = /skewY\([\d|\s|\.|-|,]*\)/.exec(transform);
+                return skewY !== null ? skewY[0].split(/[\(|\)]/)[1]
+                    .split(/[\s|,]+/).map(function(e) { return parseFloat(e); }) 
+                    : undefined;
+            },
+            "set skewY": function (value) {
+                let skewY = /skewY\([\d|\s|\.|-|,]*\)/.exec(transform);
+                context["get element"]().setAttribute("transform", 
+                    transform.replace(skewY, `skewY(${value.toString()})`)
+                );
+            },
+        }
     },
-    "set transform": function(value) {
+    "set transform": function (funcs) {
         let transform = "";
-        for (let v in value) {
-            transform += `${v}(${value[v]}) `;
+        for (let func in funcs) {
+            transform += `${func}(${funcs[func].toString()}) `;
         }
         this["get element"]().setAttribute("transform", transform);
     },
-    "get d": function() {
+    "get d": function () {
         return this["get element"]().getAttribute("d");
     },
-    "set d": function(value) {
+    "set d": function (value) {
         this["get element"]().setAttribute("d", value);
     },
-    "get stroke-linecap": function() {
+    "get stroke-linecap": function () {
         return this["get element"]().getAttribute("stroke-linecap");
     },
-    "set stroke-linecap": function(value) {
+    "set stroke-linecap": function (value) {
         this["get element"]().setAttribute("stroke-linecap", value);
     },
-    "get stroke-linejoin": function() {
+    "get stroke-linejoin": function () {
         return this["get element"]().getAttribute("stroke-linejoin");
     },
-    "set stroke-linejoin": function(value) {
+    "set stroke-linejoin": function (value) {
         this["get element"]().setAttribute("stroke-linejoin", value);
     },
-    "get stroke-width": function() {
+    "get stroke-width": function () {
         return this["get element"]().getAttribute("stroke-width");
     },
-    "set stroke-width": function(value) {
+    "set stroke-width": function (value) {
         this["get element"]().setAttribute("stroke-width", value);
     },
-    "get stroke": function() {
+    "get stroke": function () {
         return this["get element"]().getAttribute("stroke");
     },
-    "set stroke": function(value) {
+    "set stroke": function (value) {
         this["get element"]().setAttribute("stroke", value);
     },
-    "get movement in an empty field": function() {
+    "get movement in an empty field": function () {
         return this._empty_diagram
     },
     "set movement in an empty field": function (value) {
         this._empty_diagram = value;
     },
-    "get movement in an enemy field": function() {
+    "get movement in an enemy field": function () {
         return this._enemy_diagram;
     },
-    "get movement in an enemy field": function() {
+    "get movement in an enemy field": function () {
         return this._enemy_diagram;
     },
-    "set movement in an enemy field": function(value) {
+    "set movement in an enemy field": function (value) {
         this._enemy_diagram = value;
     },
-    "move": function() {
+    "move": function () {
 
     },
-    "capture": function() {
+    "capture": function () {
 
-    } 
+    },
+    "mouse down": function (event) {
+        this._mousedown = true;
+        this._currentX = event.clientX;
+        this._currentY = event.clientY;
+
+        
+    },
+    "mouse move": function (event) {
+        if (this._mousedown === true) {
+            //console.log(event.clientX, event.clientY);
+            let transform = this["get transform"]();
+            transform["set translate"](
+                [
+                    transform["get translate"]()[0] + event.clientX - this._currentX,
+                    transform["get translate"]()[1] + event.clientY - this._currentY
+                ]
+            );
+        }
+    },
+    "mouse up": function (event) {
+        this._mousedown = false;
+    }
 }
 
 Object.setPrototypeOf(common_piece_behavior, common_behavior);
@@ -123,14 +227,14 @@ Object.setPrototypeOf(common_piece_behavior, common_behavior);
 let common_tile_behavior = {
     // object data properties:
     // bool _mousedown
-    "mouse down": function(event) {
+    "mouse down": function (event) {
         if (event.which === 3) {
             this._mousedown = true;
         } else {
             temp["clear highlights"]();
         }
     },
-    "mouse up": function(event) {
+    "mouse up": function (event) {
         if (event.which === 3) {
             if (this._mousedown === true) {
                 this["highlight"]();
@@ -138,7 +242,7 @@ let common_tile_behavior = {
             }
         }
     },
-    "highlight": function() {
+    "highlight": function () {
         let original_fill = this["get fill"]();
         this["set fill"]("#ffff00");
         temp["highlights list"].push(() => {
@@ -151,11 +255,10 @@ Object.setPrototypeOf(common_tile_behavior, common_behavior);
 
 let temp = {
     "highlights list": [],
-    "clear highlights": function() {
-        let self = this;
-        if (self["highlights list"].length !== 0) {
-            for (let i = 0; i < self["highlights list"].length; i += 1) {
-                self["highlights list"][i]();
+    "clear highlights": function () {
+        if (temp["highlights list"].length !== 0) {
+            for (let i = 0; i < temp["highlights list"].length; i += 1) {
+                temp["highlights list"][i]();
             }
         }
     }
@@ -164,7 +267,7 @@ let temp = {
 /* chessbus specific functions */
 
 // unpure
-function place_tiles({diagram, rows, columns, svg, width = 75, height = 75}) {
+function place_tiles({ diagram, rows, columns, svg, width = 75, height = 75 }) {
     let r = 0;
     let c = 0;
     let x = 0;
@@ -173,20 +276,20 @@ function place_tiles({diagram, rows, columns, svg, width = 75, height = 75}) {
     let rect;
     let get_id = setup_iding(false, diagram.length);
     for (let i = 0; i < diagram.length; i += 1) {
-        
+
         temp_tile = Object.create(common_tile_behavior);
         rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
         temp_tile["set element"](rect);
-        temp_tile["set position"]({"row": r, "column": c});
-        temp_tile["set coordinate"]({"x": x, "y": y});
+        temp_tile["set position"]({ "row": r, "column": c });
+        temp_tile["set coordinate"]({ "x": x, "y": y });
         temp_tile["set width"](width);
         temp_tile["set height"](height);
         temp_tile["set fill"](diagram[i]);
 
-        temp_tile["get element"]().addEventListener("mousedown", 
+        temp_tile["get element"]().addEventListener("mousedown",
             temp_tile["mouse down"].bind(temp_tile)
         );
-        temp_tile["get element"]().addEventListener("mouseup", 
+        temp_tile["get element"]().addEventListener("mouseup",
             temp_tile["mouse up"].bind(temp_tile)
         );
 
@@ -218,21 +321,21 @@ function place_piece_on_tile(piece, svg, transform) {
                     ${10 + piece["get position"]()["row"] * 75}`,
                 "matrix": transform["matrix"]
             });
-                
+
             svg.appendChild(piece["get element"]());
         }
     }
 }
 
 // unpure
-function place_pieces({name, properties, initial_position, 
-    empty_field, enemy_field, jump, svg, rows, width = 75, height = 75}) {
+function place_pieces({ name, properties, initial_position,
+    empty_field, enemy_field, jump, svg, rows, width = 75, height = 75 }) {
 
     let get_id = setup_iding();
     let path;
-    initial_position.forEach( 
+    initial_position.forEach(
         (position) => {
-            let temp_piece = Object.create(common_piece_behavior);      
+            let temp_piece = Object.create(common_piece_behavior);
             path = document.createElementNS("http://www.w3.org/2000/svg", "path");
             temp_piece["set element"](path);
             temp_piece["set d"](properties["d"]);
@@ -243,23 +346,43 @@ function place_pieces({name, properties, initial_position,
             temp_piece["set stroke"](properties["stroke"]);
             temp_piece["set width"](width);
             temp_piece["set height"](height);
-            temp_piece["set position"]({"row": mirror_row(position["row"], rows), "column": position["column"]});
+            temp_piece["set position"]({ "row": mirror_row(position["row"], rows), "column": position["column"] });
+
+            temp_piece["get element"]().addEventListener("mousedown",
+                temp_piece["mouse down"].bind(temp_piece)
+            );
+
+            // temp_piece["get element"]().addEventListener("mousemove",
+            //     temp_piece["mouse move"].bind(temp_piece)
+            // );
+
+            // temp_piece["get element"]().addEventListener("mouseup",
+            //     temp_piece["mouse up"].bind(temp_piece)
+            // );
+
+            CHESSBUS.addEventListener("mousemove", 
+                temp_piece["mouse move"].bind(temp_piece)
+            );
+
+            CHESSBUS.addEventListener("mouseup", 
+                temp_piece["mouse up"].bind(temp_piece)
+            );
 
             place_piece_on_tile(temp_piece, svg, properties["transform"]);
 
             boardtop.pieces[name + " " + get_id()] = temp_piece;
-        } 
+        }
     );
 }
 
 // pure
 function setup_iding(assending = true, startat = 0) {
     if (assending) {
-        return function() {
+        return function () {
             return startat++;
         }
     } else {
-        return function() {
+        return function () {
             return startat--;
         }
     }
@@ -332,8 +455,7 @@ var configuration = {
         "pawn": {
             "properties": {
                 "transform": {
-                    // "translate": "20 10",
-                    "matrix": "0.0946349 0 0 0.0946349 15.8365 0.83333"
+                    "matrix": [0.0946349, 0, 0, 0.0946349, 15.8365, 0.83333]
                 },
                 "d": `M -163.2096622851282 574.0452144019284 C -182.23511758800083 
                     576.940207322642 -209.56906999149857 558.868616650869 -185.48293754452283 
@@ -378,7 +500,7 @@ var configuration = {
                 "fill": "#007fff"
             },
             "initial positions": [
-                { "row": 1, "column": 0 }, { "row": 1, "column": 1 }, { "row": 1, "column": 2 }, 
+                { "row": 1, "column": 0 }, { "row": 1, "column": 1 }, { "row": 1, "column": 2 },
                 { "row": 1, "column": 3 }, { "row": 1, "column": 4 }, { "row": 1, "column": 5 },
                 { "row": 1, "column": 6 }, { "row": 1, "column": 7 },
             ],
