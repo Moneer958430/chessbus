@@ -1,8 +1,15 @@
 "use strict";
 
+let WIDTH;
+let HEIGHT;
+
 let boardtop = {
-    "tiles": {},
-    "pieces": {}
+    "tiles": {
+        "tiles list": {}
+    },
+    "pieces": {
+        "pieces list": {}
+    }
 }
 
 let common_behavior = {
@@ -33,18 +40,6 @@ let common_behavior = {
     "set coordinate": function (value) {
         this["get element"]().setAttribute("x", value["x"]);
         this["get element"]().setAttribute("y", value["y"]);
-    },
-    "get width": function () {
-        return this["get element"]().getAttribute("width");
-    },
-    "set width": function (value) {
-        this["get element"]().setAttribute("width", value);
-    },
-    "get height": function () {
-        return this["get element"]().getAttribute("height");
-    },
-    "set height": function (value) {
-        this["get element"]().setAttribute("height", value);
     },
     "get fill": function () {
         return this["get element"]().getAttribute("fill");
@@ -133,7 +128,7 @@ let common_piece_behavior = {
                 context["get element"]().setAttribute("transform",
                     transform.replace(skewY, `skewY(${value.toString()})`)
                 );
-            },
+            }
         }
     },
     "set transform": function (funcs) {
@@ -173,6 +168,22 @@ let common_piece_behavior = {
     "set stroke": function (value) {
         this["get element"]().setAttribute("stroke", value);
     },
+    "get offset": function () {
+        return this._offset
+    },
+    "set offset": function (x, y) {
+        this._offset = {};
+        this._offset["x"] = x;
+        this._offset["y"] = y;
+    },
+    "get bias": function () {
+        return this._bias
+    },
+    "set bias": function (x, y) {
+        this._bias = {};
+        this._bias["x"] = x;
+        this._bias["y"] = y;
+    },
     "get movement in an empty field": function () {
         return this._empty_diagram
     },
@@ -196,7 +207,12 @@ let common_piece_behavior = {
     },
     "mouse down": function (event) {
         if (event.which === 1) {
-            maestro["piece to move"]["get transform"] = this["get transform"].bind(this);
+            maestro["piece to move"]["get transform"] = 
+                this["get transform"].bind(this);
+            maestro["piece to move"]["get offset"] = 
+                this["get offset"].bind(this);
+            maestro["piece to move"]["get bias"] = 
+                this["get bias"].bind(this);
             maestro["piece to move"]["set"] = true;
         }
     }
@@ -205,8 +221,18 @@ let common_piece_behavior = {
 Object.setPrototypeOf(common_piece_behavior, common_behavior);
 
 let common_tile_behavior = {
-    // object data properties:
-    // bool _mousedown
+    "get width": function () {
+        return this["get element"]().getAttribute("width");
+    },
+    "set width": function (value) {
+        this["get element"]().setAttribute("width", value);
+    },
+    "get height": function () {
+        return this["get element"]().getAttribute("height");
+    },
+    "set height": function (value) {
+        this["get element"]().setAttribute("height", value);
+    },
     "mouse down": function (event) {
         if (event.which === 3) {
             this._mousedown = true;
@@ -262,12 +288,17 @@ let maestro = {
             if (maestro["piece to move"]["set"] === true) {
                 maestro["piece to move"]["set"] = false;
                 let transform = maestro["piece to move"]["get transform"]();
-                let coordinate = center_piece_via_coordinate({
-                    "x": transform["get translate"]()[0],
+                let translate = { 
+                    "x": transform["get translate"]()[0], 
                     "y": transform["get translate"]()[1]
-                });
+                }
+                let destination = center_piece_via_coordinate(
+                    translate,
+                    maestro["piece to move"]["get offset"](),
+                    maestro["piece to move"]["get bias"]()
+                );
                 transform["set translate"](
-                    [coordinate["x"], coordinate["y"]]
+                    [ destination["x"], destination["y"] ]
                 );
             }
         }
@@ -277,7 +308,7 @@ let maestro = {
 /* chessbus specific functions */
 
 // unpure
-function place_tiles({ diagram, rows, columns, svg, width = 75, height = 75 }) {
+function place_tiles({ diagram, rows, columns, svg }) {
     let r = 0;
     let c = 0;
     let x = 0;
@@ -292,8 +323,8 @@ function place_tiles({ diagram, rows, columns, svg, width = 75, height = 75 }) {
         temp_tile["set element"](rect);
         temp_tile["set position"]({ "row": r, "column": c });
         temp_tile["set coordinate"]({ "x": x, "y": y });
-        temp_tile["set width"](width);
-        temp_tile["set height"](height);
+        temp_tile["set width"](WIDTH);
+        temp_tile["set height"](HEIGHT);
         temp_tile["set fill"](diagram[i]);
 
         temp_tile["get element"]().addEventListener("mousedown",
@@ -305,27 +336,30 @@ function place_tiles({ diagram, rows, columns, svg, width = 75, height = 75 }) {
 
         svg.appendChild(temp_tile["get element"]());
 
-        boardtop.tiles["tile" + " " + get_id()] = temp_tile;
+        boardtop["tiles"]["tiles list"]["tile" + " " + get_id()] = temp_tile;
 
         if ((i + 1) % (columns + 1) !== 0) {
             c += 1;
-            x += 75;
+            x += WIDTH;
         } else {
             c = 0;
             x = 0;
             r += 1;
-            y += 75;
+            y += HEIGHT;
         }
     }
 }
 
 // unpure
-function place_piece_on_tile(piece, svg, transform) {
-    for (let tile in boardtop.tiles) {
-        if (boardtop.tiles[tile]["get position"]()["row"] == piece["get position"]()["row"] &&
-            boardtop.tiles[tile]["get position"]()["column"] == piece["get position"]()["column"]) {
-            piece["set coordinate"](boardtop.tiles[tile]["get coordinate"]());
-            let coordinate = center_piece_via_position(piece["get position"]());
+function place_piece_on_tile(piece, svg, transform, offset) {
+    let tiles = boardtop["tiles"]["tiles list"];
+    for (let tile in tiles) {
+        if (tiles[tile]["get position"]()["row"] == piece["get position"]()["row"] &&
+            tiles[tile]["get position"]()["column"] == piece["get position"]()["column"]) {
+            piece["set coordinate"](tiles[tile]["get coordinate"]());
+            let coordinate = center_piece_via_position(
+                piece["get position"](), offset
+            );
             piece["set transform"]({
                 "translate": [coordinate["x"], coordinate["y"]],
                 "matrix": transform["matrix"]
@@ -338,7 +372,7 @@ function place_piece_on_tile(piece, svg, transform) {
 
 // unpure
 function place_pieces({ name, properties, initial_position,
-    empty_field, enemy_field, jump, svg, rows, width = 75, height = 75 }) {
+    empty_field, enemy_field, jump, svg, rows, offset, bias }) {
 
     let get_id = setup_iding();
     let path;
@@ -353,17 +387,17 @@ function place_pieces({ name, properties, initial_position,
             temp_piece["set stroke-width"](properties["stroke-width"]);
             temp_piece["set fill"](properties["fill"]);
             temp_piece["set stroke"](properties["stroke"]);
-            temp_piece["set width"](width);
-            temp_piece["set height"](height);
             temp_piece["set position"]({ "row": mirror_row(position["row"], rows), "column": position["column"] });
+            temp_piece["set offset"](offset["x"], offset["y"]);
+            temp_piece["set bias"](bias["x"], bias["y"]);
 
             temp_piece["get element"]().addEventListener("mousedown",
                 temp_piece["mouse down"].bind(temp_piece)
             );
 
-            place_piece_on_tile(temp_piece, svg, properties["transform"]);
+            place_piece_on_tile(temp_piece, svg, properties["transform"], offset);
 
-            boardtop.pieces[name + " " + get_id()] = temp_piece;
+            boardtop["pieces"]["pieces list"][name + " " + get_id()] = temp_piece;
         }
     );
 }
@@ -419,50 +453,45 @@ function mirror_row(row, total_rows) {
 }
 
 // pure
-function position_to_coordinate(position, multiplier) {
+function position_to_coordinate(position) {
     return {
-        "x": position["column"] * multiplier,
-        "y": position["row"] * multiplier
+        "x": position["column"] * WIDTH,
+        "y": position["row"] * HEIGHT
     };
 }
 
 // pure
-function coordinate_to_position(coordinate, divisor) {
+function coordinate_to_position(coordinate) {
     return {
-        "row": coordinate["y"] / divisor,
-        "column": coordinate["x"] / divisor
+        "row": coordinate["y"] / WIDTH,
+        "column": coordinate["x"] / HEIGHT
     };
 }
 
-// pure.
-function set_coordinate_to_origin(coordinate) {
+function center_piece_via_position(position, offset) {
     return {
-        "x": set_to_origin(coordinate.x),
-        "y": set_to_origin(coordinate.y)
+        "x": offset["x"] + position["column"] * WIDTH,
+        "y": offset["y"] + position["row"] * HEIGHT
     }
 }
 
-// pure. Has issues with hard coding. Don't forget to fix. Has been isolated
-function set_to_origin(number) {
-    return parseInt(number / 75) * 75;
-}
-
-// pure
-function center_piece_via_coordinate(coordinate) {
-    return center_piece_via_position(
-        coordinate_to_position(
-            set_coordinate_to_origin(coordinate),
-            75
-        )
-    );
-}
-
-// pure. Has issues with hard coding. Don't forget to fix. Has been isolated.
-function center_piece_via_position(position) {
-    return {
-        "x": 20 + position["column"] * 75,
-        "y": 10 + position["row"] * 75
+function center_piece_via_coordinate(coordinate, offset, bias) {
+    let x_slip = coordinate["x"] % WIDTH;
+    let y_slip = coordinate["y"] % HEIGHT;
+    let new_coordinate = {};
+    
+    if (x_slip / WIDTH <= bias["x"]) {
+        new_coordinate["x"] = coordinate["x"] - x_slip + offset["x"];
+    } else {
+        new_coordinate["x"] = coordinate["x"] - x_slip + WIDTH + offset["x"];
     }
+    if (y_slip / HEIGHT <= bias["y"]) {
+        new_coordinate["y"] = coordinate["y"] - y_slip + offset["y"];
+    } else {
+        new_coordinate["y"] = coordinate["y"] - y_slip + WIDTH + offset["y"];
+    }
+
+    return new_coordinate;
 }
 
 /* utility functions */
@@ -477,9 +506,11 @@ function clone(object) {
 /* chessbus object */
 
 var configuration = {
-    "number of rows": 7,
-    "number of columns": 7,
     "tiles": {
+        "number of rows": 7,
+        "number of columns": 7,
+        "width": 75,
+        "height": 75,
         "tiles configuration": [
             "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000",
             "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0",
@@ -558,7 +589,15 @@ var configuration = {
                     [0, 0, 1, 0, 0],
                     [0, 0, 0, 0, 0]
                 ],
-                "can jump": false
+                "can jump": false,
+            },
+            "offset": {
+                "x": 20,
+                "y": 10
+            },
+            "bias": {
+                "x": 0.85,
+                "y": 0.5
             }
         }
     }
@@ -574,8 +613,13 @@ class chessBus extends HTMLElement {
         this.setAttribute("config", JSON.stringify(value));
     }
 
-    constructor() {
-        super();
+    connectedCallback() {
+        this.config = configuration;
+
+        this.innerHTML = "<svg></svg>";
+
+        HEIGHT = this.config["tiles"]["height"];
+        WIDTH = this.config["tiles"]["width"];
         let chessbus = document.querySelector("chess-bus");
         chessbus.addEventListener("mousemove",
             maestro["mouse move"]
@@ -584,18 +628,12 @@ class chessBus extends HTMLElement {
         chessbus.addEventListener("mouseup",
             maestro["mouse up"]
         );
-    }
-
-    connectedCallback() {
-        this.config = configuration;
-
-        this.innerHTML = "<svg></svg>";
 
         // placing the tiles
         place_tiles({
             diagram: this.config["tiles"]["tiles configuration"],
-            rows: this.config["number of rows"],
-            columns: this.config["number of columns"],
+            rows: this.config["tiles"]["number of rows"],
+            columns: this.config["tiles"]["number of columns"],
             svg: this.querySelector("svg")
         });
 
@@ -609,7 +647,9 @@ class chessBus extends HTMLElement {
                 enemy_field: this.config["pieces"][piece]["movement"]["movement in an enemy field"],
                 jump: this.config["pieces"][piece]["can jump"],
                 svg: this.querySelector("svg"),
-                rows: this.config["number of rows"]
+                rows: this.config["tiles"]["number of rows"],
+                offset: this.config["pieces"][piece]["offset"],
+                bias: this.config["pieces"][piece]["bias"]
             });
         }
     }
