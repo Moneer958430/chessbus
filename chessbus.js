@@ -58,73 +58,73 @@ let common_piece_behavior = {
                 return transform;
             },
             "get translate": function () {
-                let translate = /translate\([\d|\s|\.|-|,]*\)/.exec(transform);
+                let translate = /translate\([\d|\s|\.|\-|,]*\)/.exec(transform);
                 return translate !== null ? translate[0].split(/[\(|\)]/)[1]
                     .split(/[\s|,]+/).map(function (e) { return parseFloat(e); })
                     : undefined;
             },
             "set translate": function (value) {
-                let translate = /translate\([\d|\s|\.|-|,]*\)/.exec(transform);
+                let translate = /translate\([\d|\s|\.|\-|,]*\)/.exec(transform);
                 context["get element"]().setAttribute("transform",
                     transform.replace(translate, `translate(${value.toString()})`)
                 );
             },
             "get matrix": function () {
-                let matrix = /matrix\([\d|\s|\.|-|,]*\)/.exec(transform);
+                let matrix = /matrix\([\d|\s|\.|\-|,]*\)/.exec(transform);
                 return matrix !== null ? matrix[0].split(/[\(|\)]/)[1]
                     .split(/[\s|,]+/).map(function (e) { return parseFloat(e); })
                     : undefined;
             },
             "set matrix": function (value) {
-                let matrix = /matrix\([\d|\s|\.|-|,]*\)/.exec(transform);
+                let matrix = /matrix\([\d|\s|\.|\-|,]*\)/.exec(transform);
                 context["get element"]().setAttribute("transform",
                     transform.replace(matrix, `matrix(${value.toString()})`)
                 );
             },
             "get scale": function () {
-                let scale = /scale\([\d|\s|\.|-|,]*\)/.exec(transform);
+                let scale = /scale\([\d|\s|\.|\-|,]*\)/.exec(transform);
                 return scale !== null ? scale[0].split(/[\(|\)]/)[1]
                     .split(/[\s|,]+/).map(function (e) { return parseFloat(e); })
                     : undefined;
             },
             "set scale": function (value) {
-                let scale = /scale\([\d|\s|\.|-|,]*\)/.exec(transform);
+                let scale = /scale\([\d|\s|\.|\-|,]*\)/.exec(transform);
                 context["get element"]().setAttribute("transform",
                     transform.replace(scale, `scale(${value.toString()})`)
                 );
             },
             "get rotate": function () {
-                let rotate = /rotate\([\d|\s|\.|-|,]*\)/.exec(transform);
+                let rotate = /rotate\([\d|\s|\.|\-|,]*\)/.exec(transform);
                 return rotate !== null ? rotate[0].split(/[\(|\)]/)[1]
                     .split(/[\s|,]+/).map(function (e) { return parseFloat(e); })
                     : undefined;
             },
             "set rotate": function (value) {
-                let rotate = /rotate\([\d|\s|\.|-|,]*\)/.exec(transform);
+                let rotate = /rotate\([\d|\s|\.|\-|,]*\)/.exec(transform);
                 context["get element"]().setAttribute("transform",
                     transform.replace(rotate, `rotate(${value.toString()})`)
                 );
             },
             "get skewX": function () {
-                let skewX = /skewX\([\d|\s|\.|-|,]*\)/.exec(transform);
+                let skewX = /skewX\([\d|\s|\.|\-|,]*\)/.exec(transform);
                 return skewX !== null ? skewX[0].split(/[\(|\)]/)[1]
                     .split(/[\s|,]+/).map(function (e) { return parseFloat(e); })
                     : undefined;
             },
             "set skewX": function (value) {
-                let skewX = /skewX\([\d|\s|\.|-|,]*\)/.exec(transform);
+                let skewX = /skewX\([\d|\s|\.|\-|,]*\)/.exec(transform);
                 context["get element"]().setAttribute("transform",
                     transform.replace(skewX, `skewX(${value.toString()})`)
                 );
             },
             "get skewY": function () {
-                let skewY = /skewY\([\d|\s|\.|-|,]*\)/.exec(transform);
+                let skewY = /skewY\([\d|\s|\.|\-|,]*\)/.exec(transform);
                 return skewY !== null ? skewY[0].split(/[\(|\)]/)[1]
                     .split(/[\s|,]+/).map(function (e) { return parseFloat(e); })
                     : undefined;
             },
             "set skewY": function (value) {
-                let skewY = /skewY\([\d|\s|\.|-|,]*\)/.exec(transform);
+                let skewY = /skewY\([\d|\s|\.|\-|,]*\)/.exec(transform);
                 context["get element"]().setAttribute("transform",
                     transform.replace(skewY, `skewY(${value.toString()})`)
                 );
@@ -207,6 +207,8 @@ let common_piece_behavior = {
     },
     "mouse down": function (event) {
         if (event.which === 1) {
+            maestro["piece to move"]["original coordinate"] = 
+                this["get transform"]()["get translate"]();
             maestro["piece to move"]["get transform"] = 
                 this["get transform"].bind(this);
             maestro["piece to move"]["get offset"] = 
@@ -299,6 +301,16 @@ let maestro = {
                 );
                 transform["set translate"](
                     [ destination["x"], destination["y"] ]
+                );
+            }
+        }
+    },
+    "mouse leave": function() {
+        if (event.which === 1) {
+            if (maestro["piece to move"]["set"] === true) {
+                maestro["piece to move"]["set"] = false;
+                maestro["piece to move"]["get transform"]()["set translate"](
+                    maestro["piece to move"]["original coordinate"]
                 );
             }
         }
@@ -621,13 +633,9 @@ class chessBus extends HTMLElement {
         HEIGHT = this.config["tiles"]["height"];
         WIDTH = this.config["tiles"]["width"];
         let chessbus = document.querySelector("chess-bus");
-        chessbus.addEventListener("mousemove",
-            maestro["mouse move"]
-        );
-
-        chessbus.addEventListener("mouseup",
-            maestro["mouse up"]
-        );
+        chessbus.addEventListener("mousemove", maestro["mouse move"]);
+        chessbus.addEventListener("mouseup", maestro["mouse up"]);
+        chessbus.addEventListener("mouseleave", maestro["mouse leave"]);
 
         // placing the tiles
         place_tiles({
