@@ -184,38 +184,81 @@ let common_piece_behavior = {
         this._bias["x"] = x;
         this._bias["y"] = y;
     },
-    "get movement in an empty field": function () {
-        return this._empty_diagram
+    "get empty field": function () {
+        return this._empty_diagram;
     },
-    "set movement in an empty field": function (value) {
-        this._empty_diagram = value;
+    "set empty field": function (value) {
+        this._empty_diagram = clone(value);
     },
-    "get movement in an enemy field": function () {
+    "get enemy field": function () {
         return this._enemy_diagram;
     },
-    "get movement in an enemy field": function () {
-        return this._enemy_diagram;
+    "set enemy field": function (value) {
+        this._enemy_diagram = clone(value);
     },
-    "set movement in an enemy field": function (value) {
-        this._enemy_diagram = value;
+    "get jump": function () {
+        return _jump;
     },
-    "move": function () {
+    "set jump": function (value) {
+        this._jump = value;
+    },
+    "get move count": function () {
+        return this._move_count;
+    },
+    "get move count": function (value) {
+        this._move_count = value;
+    },
+    "start moving": function (event) {
+        let transform = this["get transform"]();
+        let original_coordinate = { 
+            "x": transform["get translate"]()[0], 
+            "y": transform["get translate"]()[1]
+        }
+        let destination;
 
+        return (mouse, event) => {
+            switch (mouse) {
+                case "mousemove":
+                    transform = this["get transform"]();
+                    transform["set translate"](
+                        [
+                            transform["get translate"]()[0] + event.movementX,
+                            transform["get translate"]()[1] + event.movementY
+                        ]
+                    );
+                    break;
+                case "mouseup":
+                    destination = center_piece_via_coordinate(
+                        { 
+                            "x": transform["get translate"]()[0], 
+                            "y": transform["get translate"]()[1]
+                        }, 
+                        this["get offset"](), this["get bias"]()
+                    );
+                    transform["set translate"](
+                        [ destination["x"], destination["y"] ]
+                    );
+                    break;
+                case "mouseleave":
+                default:
+                    destination = center_piece_via_coordinate(
+                        original_coordinate, 
+                        this["get offset"](), this["get bias"]()
+                    );
+                    transform["set translate"](
+                        [ destination["x"], destination["y"] ]
+                    );
+            }
+        }
     },
     "capture": function () {
 
     },
     "mouse down": function (event) {
         if (event.which === 1) {
-            maestro["piece to move"]["original coordinate"] = 
-                this["get transform"]()["get translate"]();
-            maestro["piece to move"]["get transform"] = 
-                this["get transform"].bind(this);
-            maestro["piece to move"]["get offset"] = 
-                this["get offset"].bind(this);
-            maestro["piece to move"]["get bias"] = 
-                this["get bias"].bind(this);
             maestro["piece to move"]["set"] = true;
+            maestro["piece to move"]["move"] = 
+                this["start moving"]();
         }
     }
 }
@@ -275,13 +318,7 @@ let maestro = {
     "mouse move": function (event) {
         if (event.which === 1) {
             if (maestro["piece to move"]["set"] === true) {
-                let transform = maestro["piece to move"]["get transform"]();
-                transform["set translate"](
-                    [
-                        transform["get translate"]()[0] + event.movementX,
-                        transform["get translate"]()[1] + event.movementY
-                    ]
-                );
+                maestro["piece to move"]["move"]("mousemove", event);
             }
         }
     },
@@ -289,19 +326,7 @@ let maestro = {
         if (event.which === 1) {
             if (maestro["piece to move"]["set"] === true) {
                 maestro["piece to move"]["set"] = false;
-                let transform = maestro["piece to move"]["get transform"]();
-                let translate = { 
-                    "x": transform["get translate"]()[0], 
-                    "y": transform["get translate"]()[1]
-                }
-                let destination = center_piece_via_coordinate(
-                    translate,
-                    maestro["piece to move"]["get offset"](),
-                    maestro["piece to move"]["get bias"]()
-                );
-                transform["set translate"](
-                    [ destination["x"], destination["y"] ]
-                );
+                maestro["piece to move"]["move"]("mouseup", event);
             }
         }
     },
@@ -309,9 +334,7 @@ let maestro = {
         if (event.which === 1) {
             if (maestro["piece to move"]["set"] === true) {
                 maestro["piece to move"]["set"] = false;
-                maestro["piece to move"]["get transform"]()["set translate"](
-                    maestro["piece to move"]["original coordinate"]
-                );
+                maestro["piece to move"]["move"]("mouseleave", event);
             }
         }
     }
@@ -402,7 +425,9 @@ function place_pieces({ name, properties, initial_position,
             temp_piece["set position"]({ "row": mirror_row(position["row"], rows), "column": position["column"] });
             temp_piece["set offset"](offset["x"], offset["y"]);
             temp_piece["set bias"](bias["x"], bias["y"]);
-
+            temp_piece["set empty field"](empty_field);
+            temp_piece["set enemy field"](enemy_field);
+            temp_piece["set jump"] = jump;
             temp_piece["get element"]().addEventListener("mousedown",
                 temp_piece["mouse down"].bind(temp_piece)
             );
@@ -433,33 +458,6 @@ function normalizing() {
 }
 
 // pure
-function check_if_legal(from, to, diagram) {
-    if (Array.isArray(from) && Array.isArray(to)
-        && Array.isArray(diagram)) {
-
-        for (var i = 0; i < diagram.length; i++) {
-            for (var j = 0; j < diagram[i].length; j++) {
-                if (diagram[i][j] === 1) {
-                    piece_location = diagram[i][j];
-                }
-            }
-        }
-
-        possible_location = [
-            to[0] - from[0] + piece_location[0],
-            to[1] - from[1] + piece_location[1]
-        ];
-
-        if (isNaN(diagram[possible_location[0], piece_location[1]]) ||
-            diagram[possible_location[0], piece_location[1]] === 0) {
-            return false;
-        } else {
-            return true;
-        }
-    }
-}
-
-// pure
 function mirror_row(row, total_rows) {
     return row * -1 + total_rows;
 }
@@ -475,8 +473,8 @@ function position_to_coordinate(position) {
 // pure
 function coordinate_to_position(coordinate) {
     return {
-        "row": coordinate["y"] / WIDTH,
-        "column": coordinate["x"] / HEIGHT
+        "row": parseInt(coordinate["y"] / WIDTH),
+        "column": parseInt(coordinate["x"] / HEIGHT)
     };
 }
 
@@ -588,20 +586,20 @@ var configuration = {
                 { "row": 1, "column": 6 }, { "row": 1, "column": 7 },
             ],
             "movement": {
-                "movement in an empty field": [
+                "empty field": [
                     [0, 0, 0],
                     [0, 3, 0],
                     [0, [2, 3], 0],
                     [0, 1, 0],
                     [0, 0, 0]
                 ],
-                "movement in an enemy field": [
+                "enemy field": [
                     [0, 0, 0, 0, 0],
-                    [0, 2, 0, 2, 0],
+                    [0, [2, 3], 0, [2, 3], 0],
                     [0, 0, 1, 0, 0],
                     [0, 0, 0, 0, 0]
                 ],
-                "can jump": false,
+                "jump": false,
             },
             "offset": {
                 "x": 20,
@@ -651,9 +649,9 @@ class chessBus extends HTMLElement {
                 name: piece,
                 properties: this.config["pieces"][piece]["properties"],
                 initial_position: this.config["pieces"][piece]["initial positions"],
-                empty_field: this.config["pieces"][piece]["movement"]["movement in an empty field"],
-                enemy_field: this.config["pieces"][piece]["movement"]["movement in an enemy field"],
-                jump: this.config["pieces"][piece]["can jump"],
+                empty_field: this.config["pieces"][piece]["movement"]["empty field"],
+                enemy_field: this.config["pieces"][piece]["movement"]["enemy field"],
+                jump: this.config["pieces"][piece]["jump"],
                 svg: this.querySelector("svg"),
                 rows: this.config["tiles"]["number of rows"],
                 offset: this.config["pieces"][piece]["offset"],
