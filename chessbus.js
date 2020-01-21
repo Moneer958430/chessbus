@@ -68,66 +68,6 @@ let common_piece_behavior = {
                 context["get element"]().setAttribute("transform",
                     transform.replace(translate, `translate(${value.toString()})`)
                 );
-            },
-            "get matrix": function () {
-                let matrix = /matrix\([\d|\s|\.|\-|,]*\)/.exec(transform);
-                return matrix !== null ? matrix[0].split(/[\(|\)]/)[1]
-                    .split(/[\s|,]+/).map(function (e) { return parseFloat(e); })
-                    : undefined;
-            },
-            "set matrix": function (value) {
-                let matrix = /matrix\([\d|\s|\.|\-|,]*\)/.exec(transform);
-                context["get element"]().setAttribute("transform",
-                    transform.replace(matrix, `matrix(${value.toString()})`)
-                );
-            },
-            "get scale": function () {
-                let scale = /scale\([\d|\s|\.|\-|,]*\)/.exec(transform);
-                return scale !== null ? scale[0].split(/[\(|\)]/)[1]
-                    .split(/[\s|,]+/).map(function (e) { return parseFloat(e); })
-                    : undefined;
-            },
-            "set scale": function (value) {
-                let scale = /scale\([\d|\s|\.|\-|,]*\)/.exec(transform);
-                context["get element"]().setAttribute("transform",
-                    transform.replace(scale, `scale(${value.toString()})`)
-                );
-            },
-            "get rotate": function () {
-                let rotate = /rotate\([\d|\s|\.|\-|,]*\)/.exec(transform);
-                return rotate !== null ? rotate[0].split(/[\(|\)]/)[1]
-                    .split(/[\s|,]+/).map(function (e) { return parseFloat(e); })
-                    : undefined;
-            },
-            "set rotate": function (value) {
-                let rotate = /rotate\([\d|\s|\.|\-|,]*\)/.exec(transform);
-                context["get element"]().setAttribute("transform",
-                    transform.replace(rotate, `rotate(${value.toString()})`)
-                );
-            },
-            "get skewX": function () {
-                let skewX = /skewX\([\d|\s|\.|\-|,]*\)/.exec(transform);
-                return skewX !== null ? skewX[0].split(/[\(|\)]/)[1]
-                    .split(/[\s|,]+/).map(function (e) { return parseFloat(e); })
-                    : undefined;
-            },
-            "set skewX": function (value) {
-                let skewX = /skewX\([\d|\s|\.|\-|,]*\)/.exec(transform);
-                context["get element"]().setAttribute("transform",
-                    transform.replace(skewX, `skewX(${value.toString()})`)
-                );
-            },
-            "get skewY": function () {
-                let skewY = /skewY\([\d|\s|\.|\-|,]*\)/.exec(transform);
-                return skewY !== null ? skewY[0].split(/[\(|\)]/)[1]
-                    .split(/[\s|,]+/).map(function (e) { return parseFloat(e); })
-                    : undefined;
-            },
-            "set skewY": function (value) {
-                let skewY = /skewY\([\d|\s|\.|\-|,]*\)/.exec(transform);
-                context["get element"]().setAttribute("transform",
-                    transform.replace(skewY, `skewY(${value.toString()})`)
-                );
             }
         }
     },
@@ -137,36 +77,6 @@ let common_piece_behavior = {
             transform += `${func}(${funcs[func].toString()}) `;
         }
         this["get element"]().setAttribute("transform", transform);
-    },
-    "get d": function () {
-        return this["get element"]().getAttribute("d");
-    },
-    "set d": function (value) {
-        this["get element"]().setAttribute("d", value);
-    },
-    "get stroke-linecap": function () {
-        return this["get element"]().getAttribute("stroke-linecap");
-    },
-    "set stroke-linecap": function (value) {
-        this["get element"]().setAttribute("stroke-linecap", value);
-    },
-    "get stroke-linejoin": function () {
-        return this["get element"]().getAttribute("stroke-linejoin");
-    },
-    "set stroke-linejoin": function (value) {
-        this["get element"]().setAttribute("stroke-linejoin", value);
-    },
-    "get stroke-width": function () {
-        return this["get element"]().getAttribute("stroke-width");
-    },
-    "set stroke-width": function (value) {
-        this["get element"]().setAttribute("stroke-width", value);
-    },
-    "get stroke": function () {
-        return this["get element"]().getAttribute("stroke");
-    },
-    "set stroke": function (value) {
-        this["get element"]().setAttribute("stroke", value);
     },
     "get offset": function () {
         return this._offset
@@ -384,7 +294,7 @@ function place_tiles({ diagram, rows, columns, svg }) {
 }
 
 // unpure
-function place_piece_on_tile(piece, svg, transform, offset) {
+function place_piece_on_tile(piece, svg, offset) {
     let tiles = boardtop["tiles"]["tiles list"];
     for (let tile in tiles) {
         if (tiles[tile]["get position"]()["row"] == piece["get position"]()["row"] &&
@@ -395,7 +305,6 @@ function place_piece_on_tile(piece, svg, transform, offset) {
             );
             piece["set transform"]({
                 "translate": [coordinate["x"], coordinate["y"]],
-                "matrix": transform["matrix"]
             });
 
             svg.appendChild(piece["get element"]());
@@ -404,24 +313,19 @@ function place_piece_on_tile(piece, svg, transform, offset) {
 }
 
 // unpure
-function place_pieces({ name, properties, initial_position,
+function place_pieces({ name, drawing, initial_position,
     empty_field, enemy_field, jump, svg, rows, offset, bias,
     top_reach, piece_position }) {
 
     let get_id = setup_iding();
-    let path;
+    let g;
     let check_empty_move = arbiter(empty_field, piece_position, top_reach);
     initial_position.forEach(
         (position) => {
             let temp_piece = Object.create(common_piece_behavior);
-            path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-            temp_piece["set element"](path);
-            temp_piece["set d"](properties["d"]);
-            temp_piece["set stroke-linecap"](properties["stroke-linecap"]);
-            temp_piece["set stroke-linejoin"](properties["stroke-linejoin"]);
-            temp_piece["set stroke-width"](properties["stroke-width"]);
-            temp_piece["set fill"](properties["fill"]);
-            temp_piece["set stroke"](properties["stroke"]);
+            g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            g.innerHTML = drawing;
+            temp_piece["set element"](g);
             temp_piece["set position"]({ "row": mirror_row(position["row"], rows), "column": position["column"] });
             temp_piece["set offset"](offset["x"], offset["y"]);
             temp_piece["set bias"](bias["x"], bias["y"]);
@@ -433,7 +337,7 @@ function place_pieces({ name, properties, initial_position,
                 temp_piece["mouse down"].bind(temp_piece)
             );
 
-            place_piece_on_tile(temp_piece, svg, properties["transform"], offset);
+            place_piece_on_tile(temp_piece, svg, offset);
 
             boardtop["pieces"]["pieces list"][name + " " + get_id()] = temp_piece;
         }
@@ -552,110 +456,6 @@ function clone(object) {
 
 /* chessbus object */
 
-var configuration = {
-    "tiles": {
-        "number of rows": 7,
-        "number of columns": 7,
-        "width": 75,
-        "height": 75,
-        "tiles configuration": [
-            "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000",
-            "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0",
-            "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000",
-            "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0",
-            "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000",
-            "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0",
-            "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000",
-            "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0", "#000000", "#f0f0f0"
-        ]
-    },
-    "pieces": {
-        "pawn": {
-            "properties": {
-                "transform": {
-                    "matrix": [0.0946349, 0, 0, 0.0946349, 15.8365, 0.83333]
-                },
-                "d": `M -163.2096622851282 574.0452144019284 C -182.23511758800083 
-                    576.940207322642 -209.56906999149857 558.868616650869 -185.48293754452283 
-                    542.4452969616261 C -165.10000376732881 531.7650342200843 -184.65928202843486 
-                    503.9535699083702 -163.10497335971888 490.444623269631 C -141.18787590623674 
-                    460.523151855065 -117.85434453687483 429.9367427537123 -106.93213808155832 
-                    394.0368273197118 C -108.45614077390965 376.83790396889844 -142.52131939716395 
-                    348.368149173793 -108.00981819606599 342.78982332930957 C -79.55290500098047 
-                    346.09799337224393 -89.96088597510393 303.4937484406725 -80.12545199425276 
-                    285.03379445771844 C -74.21128842400128 257.0142020418731 -69.91226849292812 
-                    228.52743982445634 -70.97344832870778 199.82881837511692 C -90.79124303139983 
-                    199.2754160521141 -111.0146801516467 201.58282879476462 -130.4434776136785 
-                    196.87097587461625 C -142.83658158326682 180.60376584767496 -102.44366379758173 
-                    172.5042300156394 -95.77849302954968 157.8209380729619 C -81.79362836242731 
-                    136.71702724302685 -116.25097387373742 113.39979691741382 -101.50090198850211 
-                    88.45240788010274 C -92.07947829433019 50.68732702035819 -48.49398297816097 
-                    26.203177421847922 -11.614392927125095 40.036931413418394 C 26.575312010006314 
-                    49.94057620622311 54.805459574274494 95.05347932166015 36.654102461757134 
-                    132.57898917510903 C 35.2049577847547 139.8185181634966 23.8632168001551 
-                    149.2053111958376 27.651108448347486 154.97062812439117 C 44.18737625849906 
-                    166.44658103585635 63.33385775507156 176.4476336211959 73.8107378074402 
-                    194.16753833022273 C 58.97702345550243 204.92307566934264 34.156184854494995 
-                    196.73205475733434 15.648251466106785 201.84123656272564 C -1.189730551565276 
-                    216.77648830494795 15.442622855350407 247.3140667241374 16.305111080102336 
-                    267.80496774776134 C 21.557832631837755 291.2170701479927 26.195081108428894 
-                    314.8355980988971 32.214585645839634 338.0344285100809 C 44.86885044855535 
-                    342.9704751185886 70.86035756252232 348.6861644250623 56.6025771985025 
-                    369.19128358128944 C 36.2766789621586 385.69214190196425 46.226238361522576 
-                    411.97494866772325 57.69349738298837 430.4916302829233 C 71.96589434956974 
-                    459.0871566866866 96.46585596051636 480.9318050568405 111.47507821681683 
-                    508.8668312801711 C 117.04887599359216 521.7638005120364 97.1233857285327 
-                    544.605239595162 121.95679424549763 539.2639128145162 C 148.8789460593576 
-                    544.9827536561147 132.7686969714469 582.312451749598 108.57635416831198 
-                    573.4926633556547 C 19.438497709507374 576.6313025436011 -69.88243758286768 
-                    577.9053740107408 -159.02241317735965 574.4336501621929 L -163.20969850966986 
-                    574.0451781773868 L -163.20969850966986 574.0451781773868 L -163.2096622851282 
-                    574.0452144019284 z`,
-                "stroke-linecap": "round",
-                "stroke-linejoin": "round",
-                "stroke-width": "3",
-                "stroke": "#000000",
-                "fill": "#007fff"
-            },
-            "initial positions": [
-                { "row": 1, "column": 0 }, { "row": 1, "column": 1 }, { "row": 1, "column": 2 },
-                { "row": 1, "column": 3 }, { "row": 1, "column": 4 }, { "row": 1, "column": 5 },
-                { "row": 1, "column": 6 }, { "row": 1, "column": 7 },
-            ],
-            "movement": {
-                "piece position": {
-                    "row": 3,
-                    "column": 1
-                },
-                "endless": false,
-                "top reach": 3,
-                "empty field": [
-                    [0, 0, 0],
-                    [0, 2, 0],
-                    [0, [2, 3], 0],
-                    [0, 1, 0],
-                    [0, 0, 0]
-                ],
-                "enemy field": [
-                    [0, 0, 0, 0, 0],
-                    [0, [2, 3], 0, [2, 3], 0],
-                    [0, 0, 1, 0, 0],
-                    [0, 0, 0, 0, 0]
-                ],
-                "jump": false,
-            },
-            "offset": {
-                "x": 20,
-                "y": 10
-            },
-            "bias": {
-                "x": 0.85,
-                "y": 0.5
-            }
-        }
-    }
-}
-
 class chessBus extends HTMLElement {
 
     get config() {
@@ -690,7 +490,7 @@ class chessBus extends HTMLElement {
         for (let piece in this.config["pieces"]) {
             place_pieces({
                 name: piece,
-                properties: this.config["pieces"][piece]["properties"],
+                drawing: this.config["pieces"][piece]["drawing"],
                 initial_position: this.config["pieces"][piece]["initial positions"],
                 jump: this.config["pieces"][piece]["jump"],
                 svg: this.querySelector("svg"),
