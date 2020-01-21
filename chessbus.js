@@ -68,6 +68,30 @@ let common_piece_behavior = {
                 context["get element"]().setAttribute("transform",
                     transform.replace(translate, `translate(${value.toString()})`)
                 );
+            },
+            "get matrix": function () {
+                let matrix = /matrix\([\d|\s|\.|\-|,]*\)/.exec(transform);
+                return matrix !== null ? matrix[0].split(/[\(|\)]/)[1]
+                    .split(/[\s|,]+/).map(function (e) { return parseFloat(e); })
+                    : undefined;
+            },
+            "set matrix": function (value) {
+                let matrix = /matrix\([\d|\s|\.|\-|,]*\)/.exec(transform);
+                context["get element"]().setAttribute("transform",
+                    transform.replace(matrix, `matrix(${value.toString()})`)
+                );
+            },
+            "get rotate": function () {
+                let rotate = /rotate\([\d|\s|\.|\-|,]*\)/.exec(transform);
+                return rotate !== null ? rotate[0].split(/[\(|\)]/)[1]
+                    .split(/[\s|,]+/).map(function (e) { return parseFloat(e); })
+                    : undefined;
+            },
+            "set rotate": function (value) {
+                let rotate = /rotate\([\d|\s|\.|\-|,]*\)/.exec(transform);
+                context["get element"]().setAttribute("transform",
+                    transform.replace(rotate, `rotate(${value.toString()})`)
+                );
             }
         }
     },
@@ -135,7 +159,7 @@ let common_piece_behavior = {
                     );
                     if (this["check empty move"](
                         original_coordinate,
-                        destination)) {
+                        destination)) { 
                         transform["set translate"](
                             [destination["x"], destination["y"]]
                         );
@@ -294,7 +318,7 @@ function place_tiles({ diagram, rows, columns, svg }) {
 }
 
 // unpure
-function place_piece_on_tile(piece, svg, offset) {
+function place_piece_on_tile(piece, svg, offset, transform) {
     let tiles = boardtop["tiles"]["tiles list"];
     for (let tile in tiles) {
         if (tiles[tile]["get position"]()["row"] == piece["get position"]()["row"] &&
@@ -303,9 +327,18 @@ function place_piece_on_tile(piece, svg, offset) {
             let coordinate = center_piece_via_position(
                 piece["get position"](), offset
             );
-            piece["set transform"]({
-                "translate": [coordinate["x"], coordinate["y"]],
-            });
+            
+            let tran = {
+                "translate": [coordinate["x"], coordinate["y"]]
+            };
+
+            for (let t in transform) {
+                if (transform[t] !== undefined) {
+                    tran[t] = transform[t];
+                }
+            }
+
+            piece["set transform"](tran);
 
             svg.appendChild(piece["get element"]());
         }
@@ -315,7 +348,7 @@ function place_piece_on_tile(piece, svg, offset) {
 // unpure
 function place_pieces({ name, drawing, initial_position,
     empty_field, enemy_field, jump, svg, rows, offset, bias,
-    top_reach, piece_position }) {
+    top_reach, piece_position, transform }) {
 
     let get_id = setup_iding();
     let g;
@@ -337,7 +370,7 @@ function place_pieces({ name, drawing, initial_position,
                 temp_piece["mouse down"].bind(temp_piece)
             );
 
-            place_piece_on_tile(temp_piece, svg, offset);
+            place_piece_on_tile(temp_piece, svg, offset, transform);
 
             boardtop["pieces"]["pieces list"][name + " " + get_id()] = temp_piece;
         }
@@ -364,14 +397,13 @@ function arbiter(diagram, piece_position, top_reach) {
             coordinate_to_position(from),
             coordinate_to_position(to)
         );
-        // console.log(
-        //     piece_position["row"] - move["row"],
-        //     piece_position["column"] + move["column"],
-        //     reach,
-        //     diagram[piece_position["row"] - move["row"]][piece_position["column"] + move["column"]]
-        // );
-        let position_content = diagram[piece_position["row"] -
+
+        try {
+            var position_content = diagram[piece_position["row"] -
             move["row"]][piece_position["column"] + move["column"]];
+        } catch {
+            return false;
+        }
 
         if (reach !== top_reach ) {
             this["set reach"]( reach + 1);
@@ -413,6 +445,7 @@ function position_to_coordinate(position) {
 
 // pure
 function coordinate_to_position(coordinate) {
+    console.log(coordinate, parseInt(coordinate["y"] / WIDTH), parseInt(coordinate["x"] / HEIGHT));
     return {
         "row": parseInt(coordinate["y"] / WIDTH),
         "column": parseInt(coordinate["x"] / HEIGHT)
@@ -499,7 +532,8 @@ class chessBus extends HTMLElement {
                 bias: this.config["pieces"][piece]["bias"],
                 empty_field: this.config["pieces"][piece]["movement"]["empty field"],
                 top_reach: this.config["pieces"][piece]["movement"]["top reach"],
-                piece_position: this.config["pieces"][piece]["movement"]["piece position"]
+                piece_position: this.config["pieces"][piece]["movement"]["piece position"],
+                transform: this.config["pieces"][piece]["transform"]
             });
         }
     }
