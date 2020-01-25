@@ -46,6 +46,22 @@ let common_behavior = {
     },
     "set fill": function (value) {
         this["get element"]().setAttribute("fill", value);
+    },
+    "get map": function (row, column) {
+        if (row && column) {
+            return this._map[row][column];
+        }
+        return this._map;
+    },
+    "set map": function(row, column, value) {
+        if (!this._map) {
+            this._map = [];
+        }
+        if (row && column) {
+            this._map[row][column] = value;
+        } else {
+            throwError("You can't set map without providing positions");
+        }
     }
 }
 
@@ -275,35 +291,30 @@ let maestro = {
 /* chessbus specific functions */
 
 // unpure
-function place_tiles({ diagram, rows, columns, svg }) {
-    let r = 0;
-    let c = 0;
-    let x = 0;
-    let y = 0;
-    let temp_tile;
-    let rect;
-    let get_id = setup_iding(false, diagram.length);
+function place_tiles({ diagram, columns, svg }) {
+
+    let r = 0, c = 0, x = 0, y = 0, tile, rect, get_id 
+        = setup_iding(false, diagram.length);
+
     for (let i = 0; i < diagram.length; i += 1) {
-
-        temp_tile = Object.create(common_tile_behavior);
         rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        temp_tile["set element"](rect);
-        temp_tile["set position"]({ "row": r, "column": c });
-        temp_tile["set coordinate"]({ "x": x, "y": y });
-        temp_tile["set width"](WIDTH);
-        temp_tile["set height"](HEIGHT);
-        temp_tile["set fill"](diagram[i]);
+        svg.appendChild(rect);
+        
+        tile = boardtop["tiles"]["tiles list"]["tile" + " " + get_id()]
+            = Object.create(common_tile_behavior);
 
-        temp_tile["get element"]().addEventListener("mousedown",
-            temp_tile["mouse down"].bind(temp_tile)
+        tile["set element"](rect);
+        tile["set position"]({ "row": r, "column": c });
+        tile["set coordinate"]({ "x": x, "y": y });
+        tile["set width"](WIDTH);
+        tile["set height"](HEIGHT);
+        tile["set fill"](diagram[i]);
+        tile["get element"]().addEventListener("mousedown",
+            tile["mouse down"].bind(tile)
         );
-        temp_tile["get element"]().addEventListener("mouseup",
-            temp_tile["mouse up"].bind(temp_tile)
+        tile["get element"]().addEventListener("mouseup",
+            tile["mouse up"].bind(tile)
         );
-
-        svg.appendChild(temp_tile["get element"]());
-
-        boardtop["tiles"]["tiles list"]["tile" + " " + get_id()] = temp_tile;
 
         if ((i + 1) % (columns + 1) !== 0) {
             c += 1;
@@ -318,11 +329,48 @@ function place_tiles({ diagram, rows, columns, svg }) {
 }
 
 // unpure
+function place_piece({ name, drawing, initial_position,
+    empty_field, enemy_field, jump, svg, rows, offset, bias,
+    top_reach, piece_position, transform }) {
+
+    let g, piece, get_id = setup_iding(), check_empty_move = 
+        arbiter(empty_field, piece_position, top_reach);
+
+    initial_position.forEach(
+        (position) => {
+            g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            g.innerHTML = drawing;
+
+            piece = boardtop["pieces"]["pieces list"][name + " " + get_id()] 
+                = Object.create(common_piece_behavior);
+            piece["set element"](g);
+            piece["set position"]({ "row": mirror_row(position["row"], rows), "column": position["column"] });
+            piece["set offset"](offset["x"], offset["y"]);
+            piece["set bias"](bias["x"], bias["y"]);
+            piece["set jump"] = jump;
+            // dynamically added property:
+            piece["check empty move"] = check_empty_move;
+            piece["set reach"](2);
+            piece["get element"]().addEventListener("mousedown",
+                piece["mouse down"].bind(piece)
+            );
+
+            place_piece_on_tile(piece, svg, offset, transform);
+        }
+    );
+}
+
+// unpure
 function place_piece_on_tile(piece, svg, offset, transform) {
     let tiles = boardtop["tiles"]["tiles list"];
+
     for (let tile in tiles) {
-        if (tiles[tile]["get position"]()["row"] == piece["get position"]()["row"] &&
-            tiles[tile]["get position"]()["column"] == piece["get position"]()["column"]) {
+        
+        if (tiles[tile]["get position"]()["row"] 
+            == piece["get position"]()["row"] 
+            && tiles[tile]["get position"]()["column"] 
+            == piece["get position"]()["column"]) {
+
             piece["set coordinate"](tiles[tile]["get coordinate"]());
             let coordinate = center_piece_via_position(
                 piece["get position"](), offset
@@ -345,38 +393,6 @@ function place_piece_on_tile(piece, svg, offset, transform) {
     }
 }
 
-// unpure
-function place_pieces({ name, drawing, initial_position,
-    empty_field, enemy_field, jump, svg, rows, offset, bias,
-    top_reach, piece_position, transform }) {
-
-    let get_id = setup_iding();
-    let g;
-    let check_empty_move = arbiter(empty_field, piece_position, top_reach);
-    initial_position.forEach(
-        (position) => {
-            let temp_piece = Object.create(common_piece_behavior);
-            g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-            g.innerHTML = drawing;
-            temp_piece["set element"](g);
-            temp_piece["set position"]({ "row": mirror_row(position["row"], rows), "column": position["column"] });
-            temp_piece["set offset"](offset["x"], offset["y"]);
-            temp_piece["set bias"](bias["x"], bias["y"]);
-            temp_piece["set jump"] = jump;
-            // dynamically added property:
-            temp_piece["check empty move"] = check_empty_move;
-            temp_piece["set reach"](2);
-            temp_piece["get element"]().addEventListener("mousedown",
-                temp_piece["mouse down"].bind(temp_piece)
-            );
-
-            place_piece_on_tile(temp_piece, svg, offset, transform);
-
-            boardtop["pieces"]["pieces list"][name + " " + get_id()] = temp_piece;
-        }
-    );
-}
-
 // pure
 function setup_iding(assending = true, startat = 0) {
     if (assending) {
@@ -391,7 +407,7 @@ function setup_iding(assending = true, startat = 0) {
 }
 
 function arbiter(diagram, piece_position, top_reach) {
-    return function (from, to) {
+    return function (from, to, map) {
         let reach = this["get reach"]();
         let move = position_difference(
             coordinate_to_position(from),
@@ -445,7 +461,6 @@ function position_to_coordinate(position) {
 
 // pure
 function coordinate_to_position(coordinate) {
-    console.log(coordinate, parseInt(coordinate["y"] / WIDTH), parseInt(coordinate["x"] / HEIGHT));
     return {
         "row": parseInt(coordinate["y"] / WIDTH),
         "column": parseInt(coordinate["x"] / HEIGHT)
@@ -487,6 +502,10 @@ function clone(object) {
     );
 }
 
+function throwError(msg) {
+    throw new Error(msg);
+}
+
 /* chessbus object */
 
 class chessBus extends HTMLElement {
@@ -506,6 +525,7 @@ class chessBus extends HTMLElement {
 
         HEIGHT = this.config["tiles"]["height"];
         WIDTH = this.config["tiles"]["width"];
+
         let chessbus = document.querySelector("chess-bus");
         chessbus.addEventListener("mousemove", maestro["mouse move"]);
         chessbus.addEventListener("mouseup", maestro["mouse up"]);
@@ -514,14 +534,13 @@ class chessBus extends HTMLElement {
         // placing the tiles
         place_tiles({
             diagram: this.config["tiles"]["tiles configuration"],
-            rows: this.config["tiles"]["number of rows"],
             columns: this.config["tiles"]["number of columns"],
             svg: this.querySelector("svg")
         });
 
         // placing pieces
         for (let piece in this.config["pieces"]) {
-            place_pieces({
+            place_piece({
                 name: piece,
                 drawing: this.config["pieces"][piece]["drawing"],
                 initial_position: this.config["pieces"][piece]["initial positions"],
