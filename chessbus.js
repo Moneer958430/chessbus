@@ -47,21 +47,23 @@ let common_behavior = {
     "set fill": function (value) {
         this["get element"]().setAttribute("fill", value);
     },
-    "get map": function (row, column) {
-        if (row && column) {
-            return this._map[row][column];
+    "get map": function (position) {
+        if (position) {
+            if (this._map["row"] === undefined) {
+                return undefined;
+            }
+            return this._map["row"]["column"];
         }
         return this._map;
     },
-    "set map": function(row, column, value) {
+    "set map": function (position, value) {
         if (!this._map) {
             this._map = [];
         }
-        if (row && column) {
-            this._map[row][column] = value;
-        } else {
-            throwError("You can't set map without providing positions");
+        if (this._map[position["row"]] === undefined) {
+            this._map[position["row"]] = [];
         }
+        this._map[position["row"]][position["column"]] = value;
     }
 }
 
@@ -175,10 +177,17 @@ let common_piece_behavior = {
                     );
                     if (this["check empty move"](
                         original_coordinate,
-                        destination)) { 
+                        destination)) {
                         transform["set translate"](
                             [destination["x"], destination["y"]]
                         );
+                        // this["set map"](
+                        //     coordinate_to_position({
+                        //         "row": destination["x"],
+                        //         "column": destination["y"]
+                        //     }, this)
+                        // );
+                        // console.log(this["get map"]());
                         break;
                     }
                 case "mouseleave":
@@ -293,13 +302,13 @@ let maestro = {
 // unpure
 function place_tiles({ diagram, columns, svg }) {
 
-    let r = 0, c = 0, x = 0, y = 0, tile, rect, get_id 
+    let r = 0, c = 0, x = 0, y = 0, tile, rect, get_id
         = setup_iding(false, diagram.length);
 
     for (let i = 0; i < diagram.length; i += 1) {
         rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
         svg.appendChild(rect);
-        
+
         tile = boardtop["tiles"]["tiles list"]["tile" + " " + get_id()]
             = Object.create(common_tile_behavior);
 
@@ -333,7 +342,7 @@ function place_piece({ name, drawing, initial_position,
     empty_field, enemy_field, jump, svg, rows, offset, bias,
     top_reach, piece_position, transform }) {
 
-    let g, piece, get_id = setup_iding(), check_empty_move = 
+    let g, piece, pos, get_id = setup_iding(), check_empty_move =
         arbiter(empty_field, piece_position, top_reach);
 
     initial_position.forEach(
@@ -341,10 +350,15 @@ function place_piece({ name, drawing, initial_position,
             g = document.createElementNS("http://www.w3.org/2000/svg", "g");
             g.innerHTML = drawing;
 
-            piece = boardtop["pieces"]["pieces list"][name + " " + get_id()] 
+            piece = boardtop["pieces"]["pieces list"][name + " " + get_id()]
                 = Object.create(common_piece_behavior);
             piece["set element"](g);
-            piece["set position"]({ "row": mirror_row(position["row"], rows), "column": position["column"] });
+            pos = { 
+                "row": mirror_row(position["row"], rows), 
+                "column": position["column"] 
+            }
+            piece["set position"](pos);
+            piece["set map"](pos, piece);
             piece["set offset"](offset["x"], offset["y"]);
             piece["set bias"](bias["x"], bias["y"]);
             piece["set jump"] = jump;
@@ -365,17 +379,17 @@ function place_piece_on_tile(piece, svg, offset, transform) {
     let tiles = boardtop["tiles"]["tiles list"];
 
     for (let tile in tiles) {
-        
-        if (tiles[tile]["get position"]()["row"] 
-            == piece["get position"]()["row"] 
-            && tiles[tile]["get position"]()["column"] 
+
+        if (tiles[tile]["get position"]()["row"]
+            == piece["get position"]()["row"]
+            && tiles[tile]["get position"]()["column"]
             == piece["get position"]()["column"]) {
 
             piece["set coordinate"](tiles[tile]["get coordinate"]());
             let coordinate = center_piece_via_position(
                 piece["get position"](), offset
             );
-            
+
             let tran = {
                 "translate": [coordinate["x"], coordinate["y"]]
             };
@@ -408,35 +422,36 @@ function setup_iding(assending = true, startat = 0) {
 
 function arbiter(diagram, piece_position, top_reach) {
     return function (from, to, map) {
-        let reach = this["get reach"]();
-        let move = position_difference(
-            coordinate_to_position(from),
-            coordinate_to_position(to)
-        );
+        let empty_field_ele,
+            map_ele,
+            from_pos = coordinate_to_position(from),
+            to_pos = coordinate_to_position(to),
+            reach = this["get reach"](),
+            move = position_difference(
+                from_pos,
+                to_pos
+            );
+        if ((empty_field_ele = diagram[piece_position["row"] -
+            move["row"]] === undefined ? false : diagram[piece_position["row"] -
+            move["row"]][piece_position["column"] + move["column"]])
+            && ((Array.isArray(empty_field_ele)
+                && empty_field_ele.includes(reach))
+                || empty_field_ele === reach)) {
 
-        try {
-            var position_content = diagram[piece_position["row"] -
-            move["row"]][piece_position["column"] + move["column"]];
-        } catch {
-            return false;
-        }
+            // if ((map_ele = this["get map"](to_pos )) !== undefined) {
+            //     console.log(map_ele)
+            // }
 
-        if (reach !== top_reach ) {
-            this["set reach"]( reach + 1);
-        }
-
-        if (Array.isArray(position_content)) {
-            if (position_content.includes(reach)) {
-                return true;
+            if (reach !== top_reach) {
+                this["set reach"](reach + 1);
             }
-        } else if (position_content === reach) {
-            return true
+
+            return true;
         } else {
             return false;
         }
     }
 }
-
 
 // pure. (y1 - y2, x2 - x1)
 function position_difference(origin, destination) {
@@ -500,10 +515,6 @@ function clone(object) {
     return JSON.parse(
         JSON.stringify(object)
     );
-}
-
-function throwError(msg) {
-    throw new Error(msg);
 }
 
 /* chessbus object */
