@@ -48,22 +48,27 @@ let common_behavior = {
         this["get element"]().setAttribute("fill", value);
     },
     "get map": function (position) {
+        let context = common_behavior;
         if (position) {
-            if (this._map["row"] === undefined) {
+            if (context._map[position["row"]] === undefined) {
                 return undefined;
             }
-            return this._map["row"]["column"];
+            return context._map[position["row"]][position["column"]];
         }
-        return this._map;
+        return context._map;
     },
-    "set map": function (position, value) {
-        if (!this._map) {
-            this._map = [];
+    "set map": function (old_pos, new_pos, value) {
+        let context = common_behavior;
+        if (!context._map) {
+            context._map = {};
         }
-        if (this._map[position["row"]] === undefined) {
-            this._map[position["row"]] = [];
+        if (context._map[new_pos["row"]] === undefined) {
+            context._map[new_pos["row"]] = {};
         }
-        this._map[position["row"]][position["column"]] = value;
+        if (old_pos) {
+            delete context._map[old_pos["row"]][old_pos["column"]];    
+        }
+        context._map[new_pos["row"]][new_pos["column"]] = value;
     }
 }
 
@@ -181,13 +186,11 @@ let common_piece_behavior = {
                         transform["set translate"](
                             [destination["x"], destination["y"]]
                         );
-                        // this["set map"](
-                        //     coordinate_to_position({
-                        //         "row": destination["x"],
-                        //         "column": destination["y"]
-                        //     }, this)
-                        // );
-                        // console.log(this["get map"]());
+                        this["set map"](
+                            coordinate_to_position(original_coordinate),
+                            coordinate_to_position(destination),
+                            this["capture"].bind(this)
+                        );
                         break;
                     }
                 case "mouseleave":
@@ -202,8 +205,11 @@ let common_piece_behavior = {
             }
         }
     },
-    "capture": function () {
-
+    "capture": function (capturer) {
+        if (capturer === this["get team"]()) {
+            return false;
+        }
+        return true;
     },
     "get reach": function () {
         return this._reach;
@@ -217,6 +223,12 @@ let common_piece_behavior = {
             maestro["piece to move"]["move"] =
                 this["start moving"]();
         }
+    },
+    "get team": function () {
+        return this._team;
+    }, 
+    "set team": function (value) {
+        this._team = value;
     }
 }
 
@@ -338,7 +350,7 @@ function place_tiles({ diagram, columns, svg }) {
 }
 
 // unpure
-function place_piece({ name, drawing, initial_position,
+function place_piece({ name, team, drawing, initial_position,
     empty_field, enemy_field, jump, svg, rows, offset, bias,
     top_reach, piece_position, transform }) {
 
@@ -353,12 +365,13 @@ function place_piece({ name, drawing, initial_position,
             piece = boardtop["pieces"]["pieces list"][name + " " + get_id()]
                 = Object.create(common_piece_behavior);
             piece["set element"](g);
-            pos = { 
-                "row": mirror_row(position["row"], rows), 
-                "column": position["column"] 
+            piece["set team"](team);
+            pos = {
+                "row": mirror_row(position["row"], rows),
+                "column": position["column"]
             }
             piece["set position"](pos);
-            piece["set map"](pos, piece);
+            piece["set map"](undefined, pos, piece["capture"].bind(piece));
             piece["set offset"](offset["x"], offset["y"]);
             piece["set bias"](bias["x"], bias["y"]);
             piece["set jump"] = jump;
@@ -423,7 +436,7 @@ function setup_iding(assending = true, startat = 0) {
 function arbiter(diagram, piece_position, top_reach) {
     return function (from, to, map) {
         let empty_field_ele,
-            map_ele,
+            capture,
             from_pos = coordinate_to_position(from),
             to_pos = coordinate_to_position(to),
             reach = this["get reach"](),
@@ -438,9 +451,12 @@ function arbiter(diagram, piece_position, top_reach) {
                 && empty_field_ele.includes(reach))
                 || empty_field_ele === reach)) {
 
-            // if ((map_ele = this["get map"](to_pos )) !== undefined) {
-            //     console.log(map_ele)
-            // }
+            console.log((capture = this["get map"](to_pos)) !== undefined
+            && !capture(this["get team"]()));
+            if ((capture = this["get map"](to_pos)) !== undefined
+                && !capture(this["get team"]())) {
+                return false;
+            }
 
             if (reach !== top_reach) {
                 this["set reach"](reach + 1);
@@ -553,6 +569,7 @@ class chessBus extends HTMLElement {
         for (let piece in this.config["pieces"]) {
             place_piece({
                 name: piece,
+                team: this.config["pieces"][piece]["team"],
                 drawing: this.config["pieces"][piece]["drawing"],
                 initial_position: this.config["pieces"][piece]["initial positions"],
                 jump: this.config["pieces"][piece]["jump"],

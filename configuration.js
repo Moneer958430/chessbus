@@ -109,7 +109,7 @@ var configuration = {
             }
         },
         "kight white": {
-            "team": 2,
+            "team": 1,
             "transform": {
                 "matrix": undefined,
                 "rotate": undefined,
