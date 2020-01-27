@@ -129,8 +129,8 @@ let ComPiece = {
         let orgCrd = new Crd(
             transform.getTranslate()[0],
             transform.getTranslate()[1]
-        ); 
-        
+        );
+
         let destination;
 
         return (mouse, event) => {
@@ -158,11 +158,11 @@ let ComPiece = {
                         transform.setTranslate(
                             [destination.x, destination.y]
                         );
-                        this.setMap(
-                            crdToPos(orgCrd),
-                            crdToPos(destination),
-                            this.capture.bind(this)
-                        );
+                        this.setMap({
+                            oldPos: crdToPos(orgCrd),
+                            newPos: crdToPos(destination),
+                            cb: this.capture.bind(this)
+                        });
                         break;
                     }
                 case "mouseleave":
@@ -181,6 +181,7 @@ let ComPiece = {
         if (capturer === this.getTeam()) {
             return false;
         }
+        this.getElem().remove();
         return true;
     },
     getReach: function () {
@@ -198,7 +199,7 @@ let ComPiece = {
     },
     getTeam: function () {
         return this._team;
-    }, 
+    },
     setTeam: function (value) {
         this._team = value;
     },
@@ -212,7 +213,7 @@ let ComPiece = {
         }
         return context._map;
     },
-    setMap: function (oldPos, newPos, value) {
+    setMap: function ({ oldPos, newPos, cb }) {
         let context = ComPiece;
         if (!context._map) {
             context._map = {};
@@ -221,9 +222,9 @@ let ComPiece = {
             context._map[newPos.row] = {};
         }
         if (oldPos) {
-            delete context._map[oldPos.row][oldPos.column];    
+            delete context._map[oldPos.row][oldPos.column];
         }
-        context._map[newPos.row][newPos.column] = value;
+        context._map[newPos.row][newPos.column] = cb;
     }
 }
 
@@ -318,8 +319,6 @@ let maestro = {
     }
 }
 
-
-
 /* chessbus specific functions */
 
 // unpure
@@ -365,8 +364,9 @@ function placePiece({ name, team, drawing, InitialPos,
     emptyField, enemyField, jump, svg, rows, offset, bias,
     topReach, piecePos, transform }) {
 
-    let g, piece, realPos, getId = setupIding(), checkEmptyMove =
-        arbiter(emptyField, piecePos, topReach);
+    let g, piece, realPos,
+        getId = setupIding(),
+        checkMove = arbiter(emptyField, enemyField, piecePos, topReach);
 
     InitialPos.forEach(
         (pos) => {
@@ -379,14 +379,17 @@ function placePiece({ name, team, drawing, InitialPos,
             piece.setTeam(team);
             realPos = new Pos(
                 mirrorRow(pos.row, rows), pos.column
-            ); 
+            );
             piece.setPos(realPos);
-            piece.setMap(undefined, realPos, piece.capture.bind(piece));
+            piece.setMap({
+                newPos: realPos,
+                cb: piece.capture.bind(piece)
+            });
             piece.setOffset(offset.x, offset.y);
             piece.setBias(bias.x, bias.y);
             piece.setJump = jump;
             // dynamically added property:
-            piece.checkEmptyMove = checkEmptyMove;
+            piece.checkEmptyMove = checkMove;
             piece.setReach(2);
             piece.getElem().addEventListener("mousedown",
                 piece.mouseDown.bind(piece)
@@ -443,33 +446,36 @@ function setupIding(assending = true, startat = 0) {
     }
 }
 
-function arbiter(diagram, piecePos, topReach) {
+function arbiter(emptyField, enemyField, piecePos, topReach) {
     return function (from, to) {
         let emptyFieldEle,
-            capture,
+            enemyFieldEle,
             fromPos = crdToPos(from),
             toPos = crdToPos(to),
             reach = this.getReach(),
+            des = this.getMap(toPos),
             move = posDiff(
                 fromPos,
                 toPos
             );
-        if ((emptyFieldEle = diagram[piecePos.row -
-            move.row] === undefined ? false : diagram[piecePos.row -
+
+        if (((emptyFieldEle = emptyField[piecePos.row -
+            move.row] === undefined ? false : emptyField[piecePos.row -
             move.row][piecePos.column + move.column])
             && ((Array.isArray(emptyFieldEle)
                 && emptyFieldEle.includes(reach))
-                || emptyFieldEle === reach)) {
-
-            if ((capture = this.getMap(toPos)) !== undefined
-                && !capture(this.getTeam())) {
-                return false;
-            }
+                || emptyFieldEle === reach) && des === undefined)
+            || ((enemyFieldEle = enemyField[piecePos.row -
+                move.row] === undefined ? false : enemyField[piecePos.row -
+                move.row][piecePos.column + move.column])
+                && ((Array.isArray(enemyFieldEle)
+                    && enemyFieldEle.includes(reach))
+                    || enemyFieldEle === reach) 
+                    && des !== undefined && des(this.getTeam()))) {
 
             if (reach !== topReach) {
                 this.setReach(reach + 1);
             }
-
             return true;
         } else {
             return false;
@@ -587,6 +593,7 @@ class chessBus extends HTMLElement {
                 offset: this.config["pieces"][piece]["offset"],
                 bias: this.config["pieces"][piece]["bias"],
                 emptyField: this.config["pieces"][piece]["movement"]["empty field"],
+                enemyField: this.config["pieces"][piece]["movement"]["enemy field"],
                 topReach: this.config["pieces"][piece]["movement"]["top reach"],
                 piecePos: this.config["pieces"][piece]["movement"]["piece position"],
                 transform: this.config["pieces"][piece]["transform"]

@@ -33,23 +33,22 @@ var configuration = {
             ],
             "movement": {
                 "piece position": {
-                    "row": 3,
+                    "row": 2,
                     "column": 1
                 },
                 "endless": false,
                 "top reach": 3,
                 "empty field": [
-                    [0, 0, 0],
                     [0, 2, 0],
                     [0, [2, 3], 0],
                     [0, 1, 0],
                     [0, 0, 0]
                 ],
                 "enemy field": [
-                    [0, 0, 0, 0, 0],
-                    [0, [2, 3], 0, [2, 3], 0],
-                    [0, 0, 1, 0, 0],
-                    [0, 0, 0, 0, 0]
+                    [0, 0, 0],
+                    [[2, 3], 0, [2, 3]],
+                    [0, 1, 0],
+                    [0, 0, 0]
                 ],
                 "jump": false,
             },
@@ -79,23 +78,22 @@ var configuration = {
             ],
             "movement": {
                 "piece position": {
-                    "row": 1,
+                    "row": 0,
                     "column": 1
                 },
                 "endless": false,
                 "top reach": 3,
                 "empty field": [
-                    [0, 0, 0],
                     [0, 1, 0],
                     [0, [2, 3], 0],
                     [0, 2, 0],
                     [0, 0, 0]
                 ],
                 "enemy field": [
-                    [0, 0, 0, 0, 0],
-                    [0, 0, 1, 0, 0],
-                    [0, [2, 3], 0, [2, 3], 0],
-                    [0, 0, 0, 0, 0]
+                    [0, 1, 0],
+                    [[2, 3], 0, [2, 3]],
+                    [0, 0, 0],
+                    [0, 0, 0]
                 ],
                 "jump": false,
             },
