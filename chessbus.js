@@ -12,8 +12,6 @@ let boardtop = {
     }
 }
 
-// start of objects used as models
-
 let Com = {
     getElem: function () {
         return this._element;
@@ -118,12 +116,6 @@ let ComPiece = {
         this._bias.x = x;
         this._bias.y = y;
     },
-    getJump: function () {
-        return _jump;
-    },
-    setJump: function (value) {
-        this._jump = value;
-    },
     startMoving: function (event) {
         let transform = this.getTransform();
         let orgCrd = new Crd(
@@ -161,7 +153,14 @@ let ComPiece = {
                         this.setMap({
                             oldPos: crdToPos(orgCrd),
                             newPos: crdToPos(destination),
-                            cb: this.capture.bind(this)
+                            bag: new FuncsBag(
+                                this,
+                                {
+                                    capture: this.capture,
+                                    getTeam: this.getTeam,
+                                    getReach: this.getReach
+                                }
+                            )
                         });
                         break;
                     }
@@ -177,10 +176,7 @@ let ComPiece = {
             }
         }
     },
-    capture: function (capturer) {
-        if (capturer === this.getTeam()) {
-            return false;
-        }
+    capture: function () {
         this.getElem().remove();
         return true;
     },
@@ -213,7 +209,7 @@ let ComPiece = {
         }
         return context._map;
     },
-    setMap: function ({ oldPos, newPos, cb }) {
+    setMap: function ({ oldPos, newPos, bag }) {
         let context = ComPiece;
         if (!context._map) {
             context._map = {};
@@ -224,7 +220,46 @@ let ComPiece = {
         if (oldPos) {
             delete context._map[oldPos.row][oldPos.column];
         }
-        context._map[newPos.row][newPos.column] = cb;
+        if (oldPos) {
+            this.setAnno({ row: oldPos.row, obj: oldPos.column, value: "0" });
+            this.setAnno({ column: oldPos.column, obj: oldPos.row, value: "0" });
+        }
+        this.setAnno({ row: newPos.row, obj: newPos.column, value: "1" });
+        this.setAnno({ column: newPos.column, obj: newPos.row, value: "1" });
+        context._map[newPos.row][newPos.column] = bag;
+    },
+    getAnno: function ({ obj, value } = {}) {
+        let context = ComPiece;
+        if (obj !== undefined) {
+            return context.anno[obj][value];
+        }
+        return context.anno;
+    },
+    setAnno: function ({ row, column, obj, value }) {
+        let str, context = ComPiece;
+        if (!context.anno) {
+            context.anno = {
+                columns: {},
+                rows: {}
+            };
+        }
+        if (row !== undefined) {
+            if (str = context.anno.rows[row]) {
+                context.anno.rows[row] = replaceChar(str, obj, value);
+            } else {
+                str = zeros(8);
+                context.anno.rows[row] = replaceChar(str, obj, value);
+            }
+        }
+        if (column !== undefined) {
+            if (str = context.anno.columns[column]) {
+                context.anno.columns[column] = replaceChar(str, obj, value);
+            } else {
+                str = zeros(8);
+                context.anno.columns[column] = replaceChar(str, obj, value);
+            }
+        }
+
     }
 }
 
@@ -277,7 +312,12 @@ function Crd(x, y) {
     this.y = y;
 }
 
-// end of objects used as models.
+function FuncsBag(obj, ...funcs) {
+    funcs = funcs[0];
+    for (let func in funcs) {
+        this[func] = funcs[func].bind(obj);
+    }
+}
 
 let maestro = {
     highlightsList: [],
@@ -319,8 +359,6 @@ let maestro = {
     }
 }
 
-/* chessbus specific functions */
-
 // unpure
 function placeTiles({ diagram, columns, svg }) {
 
@@ -361,12 +399,17 @@ function placeTiles({ diagram, columns, svg }) {
 
 // unpure
 function placePiece({ name, team, drawing, InitialPos,
-    emptyField, enemyField, jump, svg, rows, offset, bias,
+    emptyField, enemyField, specialFields, svg, rows, offset, bias,
     topReach, piecePos, transform }) {
 
     let g, piece, realPos,
         getId = setupIding(),
-        checkMove = arbiter(emptyField, enemyField, piecePos, topReach);
+        checkMove = arbiter({
+            emptyField: emptyField,
+            enemyField: enemyField,
+            piecePos: piecePos,
+            topReach: topReach
+        });
 
     InitialPos.forEach(
         (pos) => {
@@ -383,11 +426,17 @@ function placePiece({ name, team, drawing, InitialPos,
             piece.setPos(realPos);
             piece.setMap({
                 newPos: realPos,
-                cb: piece.capture.bind(piece)
+                bag: new FuncsBag(
+                    piece,
+                    {
+                        capture: piece.capture,
+                        getTeam: piece.getTeam,
+                        getReach: piece.getReach
+                    }
+                )
             });
             piece.setOffset(offset.x, offset.y);
             piece.setBias(bias.x, bias.y);
-            piece.setJump = jump;
             // dynamically added property:
             piece.checkEmptyMove = checkMove;
             piece.setReach(2);
@@ -446,7 +495,7 @@ function setupIding(assending = true, startat = 0) {
     }
 }
 
-function arbiter(emptyField, enemyField, piecePos, topReach) {
+function arbiter({ emptyField, enemyField, specialFields, piecePos, topReach }) {
     return function (from, to) {
         let emptyFieldEle,
             enemyFieldEle,
@@ -458,20 +507,72 @@ function arbiter(emptyField, enemyField, piecePos, topReach) {
                 fromPos,
                 toPos
             );
-
+        
+        let walk = () => {
+            if (move.column === 0) {
+                let anno = this.getAnno({ obj: "columns", value: fromPos.column });
+                if (move.row > 0
+                    && parseInt(anno.substr(toPos.row + 1, move.row - 1))
+                    > 0) {
+                    return false;
+                } else if (move.row < 0
+                    && parseInt(anno.substr(fromPos.row + 1, Math.abs(move.row) - 1))
+                    > 0) {
+                    return false;
+                }
+            } else if (move.row === 0) {
+                let anno = this.getAnno({ obj: "rows", value: fromPos.row });
+                if (move.column < 0
+                    && parseInt(anno.substr(toPos.column + 1, Math.abs(move.column) - 1))
+                    > 0) {
+                    return false;
+                } else if (move.column > 0 
+                    && parseInt(anno.substr(fromPos.column + 1, move.column - 1))
+                    > 0) {
+                    return false;
+                }
+            }
+            return true;
+        }
         if (((emptyFieldEle = emptyField[piecePos.row -
             move.row] === undefined ? false : emptyField[piecePos.row -
             move.row][piecePos.column + move.column])
             && ((Array.isArray(emptyFieldEle)
                 && emptyFieldEle.includes(reach))
-                || emptyFieldEle === reach) && des === undefined)
-            || ((enemyFieldEle = enemyField[piecePos.row -
-                move.row] === undefined ? false : enemyField[piecePos.row -
-                move.row][piecePos.column + move.column])
-                && ((Array.isArray(enemyFieldEle)
-                    && enemyFieldEle.includes(reach))
-                    || enemyFieldEle === reach) 
-                    && des !== undefined && des(this.getTeam()))) {
+                || emptyFieldEle === reach)
+            && des === undefined)) {
+                console.log("ok");
+            if (!Array.isArray(emptyFieldEle)
+                || (Array.isArray(emptyFieldEle)
+                    && !emptyFieldEle.includes("j"))) {
+                if (walk() === false) {
+                    return false;
+                }
+            }
+            
+            if (reach !== topReach) {
+                this.setReach(reach + 1);
+            }
+            return true;
+            
+        } else if ((enemyFieldEle = enemyField[piecePos.row -
+            move.row] === undefined ? false : enemyField[piecePos.row -
+            move.row][piecePos.column + move.column])
+            && ((Array.isArray(enemyFieldEle)
+                && enemyFieldEle.includes(reach))
+                || enemyFieldEle === reach)
+            && des !== undefined
+            && des.getTeam() !== this.getTeam()) {
+
+            if (!Array.isArray(enemyFieldEle)
+            || (Array.isArray(enemyFieldEle)
+                && !enemyFieldEle.includes("j"))) {
+                if (walk() === false) {
+                    return false;
+                }
+            }
+
+            des.capture();
 
             if (reach !== topReach) {
                 this.setReach(reach + 1);
@@ -538,13 +639,24 @@ function centerPieceViaCrd(crd, offset, bias) {
     return newCrd;
 }
 
-/* utility functions */
-
 // pure
-function clone(object) {
+function clone(ob) {
     return JSON.parse(
-        JSON.stringify(object)
+        JSON.stringify(ob)
     );
+}
+
+function zeros(num) {
+    let str = "";
+    while (num > 0) {
+        str += "0"
+        num -= 1;
+    }
+    return str;
+}
+
+function replaceChar(str, i, value) {
+    return str.substr(0, i) + value + str.substr(i + value.length);
 }
 
 /* chessbus object */
@@ -587,13 +699,13 @@ class chessBus extends HTMLElement {
                 team: this.config["pieces"][piece]["team"],
                 drawing: this.config["pieces"][piece]["drawing"],
                 InitialPos: this.config["pieces"][piece]["initial positions"],
-                jump: this.config["pieces"][piece]["jump"],
                 svg: this.querySelector("svg"),
                 rows: this.config["tiles"]["number of rows"],
                 offset: this.config["pieces"][piece]["offset"],
                 bias: this.config["pieces"][piece]["bias"],
                 emptyField: this.config["pieces"][piece]["movement"]["empty field"],
                 enemyField: this.config["pieces"][piece]["movement"]["enemy field"],
+                specialFields: this.config["pieces"][piece]["movement"]["special fields"],
                 topReach: this.config["pieces"][piece]["movement"]["top reach"],
                 piecePos: this.config["pieces"][piece]["movement"]["piece position"],
                 transform: this.config["pieces"][piece]["transform"]
