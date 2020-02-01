@@ -2,6 +2,8 @@
 
 let WIDTH;
 let HEIGHT;
+let ROWS;
+let COLUMNS;
 
 let boardtop = {
     tiles: {
@@ -221,45 +223,67 @@ let ComPiece = {
             delete context._map[oldPos.row][oldPos.column];
         }
         if (oldPos) {
-            this.setAnno({ row: oldPos.row, obj: oldPos.column, value: "0" });
-            this.setAnno({ column: oldPos.column, obj: oldPos.row, value: "0" });
+            this.setStrip({frank: new Frank({
+                group: "files", pos: oldPos, bi: "0"
+            })});
+            this.setStrip({frank: new Frank({
+                group: "ranks", pos: oldPos, bi: "0"
+            })});
+            this.setStrip({diag: new Diag({
+                sign: "+", pos: oldPos, bi: "0"
+            })});
+            this.setStrip({diag: new Diag({
+                sign: "-", pos: oldPos, bi: "0"
+            })});
         }
-        this.setAnno({ row: newPos.row, obj: newPos.column, value: "1" });
-        this.setAnno({ column: newPos.column, obj: newPos.row, value: "1" });
+        this.setStrip({frank: new Frank({
+            group: "files", pos: newPos, bi: "1"
+        })});
+        this.setStrip({frank: new Frank({
+            group: "ranks", pos: newPos, bi: "1"
+        })});
+        this.setStrip({diag: new Diag({
+            sign: "+", pos: newPos, bi: "1"
+        })});
+        this.setStrip({diag: new Diag({
+            sign: "-", pos: newPos, bi: "1"
+        })});
+
         context._map[newPos.row][newPos.column] = bag;
     },
-    getAnno: function ({ obj, value } = {}) {
+    getStrip: function ({ group, num } = {}) {
         let context = ComPiece;
-        if (obj !== undefined) {
-            return context.anno[obj][value];
+        if (group !== undefined) {
+            return context.strips[group][num];
         }
-        return context.anno;
+        return context.strips;
     },
-    setAnno: function ({ row, column, obj, value }) {
+    setStrip: function ({ frank, diag }) {
         let str, context = ComPiece;
-        if (!context.anno) {
-            context.anno = {
-                columns: {},
-                rows: {}
+        if (!context.strips) {
+            context.strips = {
+                ranks: {},
+                files: {},
+                pDiags: {},
+                nDiags: {}
             };
         }
-        if (row !== undefined) {
-            if (str = context.anno.rows[row]) {
-                context.anno.rows[row] = replaceChar(str, obj, value);
+        if (frank !== undefined) {
+            if (str = context.strips[frank.group][frank.num]) {
+                context.strips[frank.group][frank.num] = replaceChar(str, frank.i, frank.bi);
             } else {
-                str = zeros(8);
-                context.anno.rows[row] = replaceChar(str, obj, value);
+                str = zeros(frank.mag);
+                context.strips[frank.group][frank.num] = replaceChar(str, frank.i, frank.bi);
             }
         }
-        if (column !== undefined) {
-            if (str = context.anno.columns[column]) {
-                context.anno.columns[column] = replaceChar(str, obj, value);
+        if (diag !== undefined) { 
+            if (str = context.strips[diag.group][diag.num]) {
+                context.strips[diag.group][diag.num] = replaceChar(str, diag.i, diag.bi);
             } else {
-                str = zeros(8);
-                context.anno.columns[column] = replaceChar(str, obj, value);
+                str = zeros(diag.mag);
+                context.strips[diag.group][diag.num] = replaceChar(str, diag.i, diag.bi);
             }
         }
-
     }
 }
 
@@ -303,8 +327,8 @@ let ComTile = {
 Object.setPrototypeOf(ComTile, Com);
 
 function Pos(row, column) {
-    this.row = row;
     this.column = column;
+    this.row = row;
 }
 
 function Crd(x, y) {
@@ -318,6 +342,48 @@ function FuncsBag(obj, ...funcs) {
         this[func] = funcs[func].bind(obj);
     }
 }
+
+function Frank({group, pos, bi}) {
+    this.group = group;
+    this.bi = bi;
+    this.mag = COLUMNS + 1;
+    if (group === "files") {
+        this.num = pos.row;
+        this.i = pos.column;
+    } else if (group === "ranks") {
+        this.num = pos.column;
+        this.i = pos.row;
+    }
+}
+
+function Diag({sign, pos, bi}) {
+    this.num = Diag.diagNum(pos, sign); 
+    this.mag = Diag.diagMag(pos, sign);
+    this.bi = bi;
+    if (sign === "+") {
+        this.group = "pDiags";
+        this.i = pos.column;
+    } else if (sign === "-") {
+        this.group = "nDiags";
+        this.i = COLUMNS - pos.column;
+    }
+}
+
+Diag.diagNum = function (pos, sign) {
+    if (sign === "+") { // x + y = z
+        return pos.column + pos.row;
+    } else if (sign === "-") { // -x + y + C = z
+        return (pos.column * -1) + pos.row + COLUMNS;
+    }
+}; 
+
+Diag.diagMag = function(pos, sign) {
+    if (sign === "+") { // -| x + y - C | + C + 1 = z
+        return (Math.abs(pos.column + pos.row - COLUMNS) * -1) + ROWS + 1;
+    } else if (sign === "-") { // - | x - y | + C + 1 = z
+        return (Math.abs(pos.column - pos.row) * -1) + ROWS + 1;
+    }
+};
 
 let maestro = {
     highlightsList: [],
@@ -360,7 +426,7 @@ let maestro = {
 }
 
 // unpure
-function placeTiles({ diagram, columns, svg }) {
+function placeTiles({ diagram, svg }) {
 
     let r = 0, c = 0, x = 0, y = 0, tile, rect, getId
         = setupIding(false, diagram.length);
@@ -385,7 +451,7 @@ function placeTiles({ diagram, columns, svg }) {
             tile.mouseUp.bind(tile)
         );
 
-        if ((i + 1) % (columns + 1) !== 0) {
+        if ((i + 1) % (COLUMNS + 1) !== 0) {
             c += 1;
             x += WIDTH;
         } else {
@@ -421,7 +487,7 @@ function placePiece({ name, team, drawing, InitialPos,
             piece.setElem(g);
             piece.setTeam(team);
             realPos = new Pos(
-                mirrorRow(pos.row, rows), pos.column
+                mirrorRow(pos.row, ROWS), pos.column
             );
             piece.setPos(realPos);
             piece.setMap({
@@ -495,10 +561,12 @@ function setupIding(assending = true, startat = 0) {
     }
 }
 
+// pure
 function arbiter({ emptyField, enemyField, specialFields, piecePos, topReach }) {
     return function (from, to) {
         let emptyFieldEle,
             enemyFieldEle,
+            sign,
             fromPos = crdToPos(from),
             toPos = crdToPos(to),
             reach = this.getReach(),
@@ -509,27 +577,54 @@ function arbiter({ emptyField, enemyField, specialFields, piecePos, topReach }) 
             );
         
         let walk = () => {
+            let strip;
             if (move.column === 0) {
-                let anno = this.getAnno({ obj: "columns", value: fromPos.column });
+                strip = this.getStrip({ group: "ranks", num: fromPos.column });
                 if (move.row > 0
-                    && parseInt(anno.substr(toPos.row + 1, move.row - 1))
+                    && parseInt(strip.substr(toPos.row + 1, move.row - 1))
                     > 0) {
                     return false;
                 } else if (move.row < 0
-                    && parseInt(anno.substr(fromPos.row + 1, Math.abs(move.row) - 1))
+                    && parseInt(strip.substr(fromPos.row + 1, Math.abs(move.row) - 1))
                     > 0) {
                     return false;
                 }
             } else if (move.row === 0) {
-                let anno = this.getAnno({ obj: "rows", value: fromPos.row });
+                strip = this.getStrip({ group: "files", num: fromPos.row });
                 if (move.column < 0
-                    && parseInt(anno.substr(toPos.column + 1, Math.abs(move.column) - 1))
+                    && parseInt(strip.substr(toPos.column + 1, Math.abs(move.column) - 1))
                     > 0) {
                     return false;
                 } else if (move.column > 0 
-                    && parseInt(anno.substr(fromPos.column + 1, move.column - 1))
+                    && parseInt(strip.substr(fromPos.column + 1, move.column - 1))
                     > 0) {
                     return false;
+                }
+            } else if ((sign = (sign = move.column / move.row) > 0 ? "+" : false) ) {
+                strip = this.getStrip({ 
+                    group: "pDiags",
+                    num: Diag.diagNum(fromPos, sign) 
+                });
+                // if (move.column > 0 
+                //     && parseInt(strip.substr(fromPos.column + 1, move.column - 1)) 
+                //     > 0) {
+                //     return false;
+                // } else if (move.column < 0 
+                //     && parseInt(strip.substr(toPos.column + 1, Math.abs(move.column) - 1)) 
+                //     > 0) {
+                //     return false;
+                // }
+            } else if ((sign = (sign = move.column / move.row) < 0 ? "-" : false)) {
+                strip = this.getStrip({ 
+                    group: "nDiags",
+                    num: Diag.diagNum(fromPos, sign) 
+                });
+                if (move.column > 0) {
+    
+                    //return false;
+                } else if (move.column < 0 
+                    ) {
+                    //return false;
                 }
             }
             return true;
@@ -541,7 +636,6 @@ function arbiter({ emptyField, enemyField, specialFields, piecePos, topReach }) 
                 && emptyFieldEle.includes(reach))
                 || emptyFieldEle === reach)
             && des === undefined)) {
-                console.log("ok");
             if (!Array.isArray(emptyFieldEle)
                 || (Array.isArray(emptyFieldEle)
                     && !emptyFieldEle.includes("j"))) {
@@ -613,6 +707,7 @@ function crdToPos(crd) {
     );
 }
 
+// pure
 function centerPieceViaPos(pos, offset) {
     return new Crd(
         offset.x + pos.column * WIDTH,
@@ -620,6 +715,7 @@ function centerPieceViaPos(pos, offset) {
     );
 }
 
+// pure
 function centerPieceViaCrd(crd, offset, bias) {
     let xSlip = crd.x % WIDTH;
     let ySlip = crd.y % HEIGHT;
@@ -640,12 +736,19 @@ function centerPieceViaCrd(crd, offset, bias) {
 }
 
 // pure
+function slope(from, to) { 
+    return (to.x - from.x) === 0 ? undefined : 
+        ((to.y * -1) - (from.y * -1)) / (to.x - from.x);
+}
+
+// pure
 function clone(ob) {
     return JSON.parse(
         JSON.stringify(ob)
     );
 }
 
+// pure
 function zeros(num) {
     let str = "";
     while (num > 0) {
@@ -655,6 +758,7 @@ function zeros(num) {
     return str;
 }
 
+// pure
 function replaceChar(str, i, value) {
     return str.substr(0, i) + value + str.substr(i + value.length);
 }
@@ -678,6 +782,8 @@ class chessBus extends HTMLElement {
 
         HEIGHT = this.config["tiles"]["height"];
         WIDTH = this.config["tiles"]["width"];
+        ROWS = this.config["tiles"]["number of rows"];
+        COLUMNS = this.config["tiles"]["number of columns"];
 
         let chessbus = document.querySelector("chess-bus");
         chessbus.addEventListener("mousedown", maestro.mouseDown);
@@ -688,7 +794,6 @@ class chessBus extends HTMLElement {
         // placing the tiles
         placeTiles({
             diagram: this.config["tiles"]["tiles configuration"],
-            columns: this.config["tiles"]["number of columns"],
             svg: this.querySelector("svg")
         });
 
@@ -700,7 +805,6 @@ class chessBus extends HTMLElement {
                 drawing: this.config["pieces"][piece]["drawing"],
                 InitialPos: this.config["pieces"][piece]["initial positions"],
                 svg: this.querySelector("svg"),
-                rows: this.config["tiles"]["number of rows"],
                 offset: this.config["pieces"][piece]["offset"],
                 bias: this.config["pieces"][piece]["bias"],
                 emptyField: this.config["pieces"][piece]["movement"]["empty field"],
