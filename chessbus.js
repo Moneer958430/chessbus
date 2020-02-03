@@ -336,8 +336,7 @@ function Crd(x, y) {
     this.y = y;
 }
 
-function FuncsBag(obj, ...funcs) {
-    funcs = funcs[0];
+function FuncsBag(obj, funcs) {
     for (let func in funcs) {
         this[func] = funcs[func].bind(obj);
     }
@@ -472,7 +471,7 @@ function placeTiles({ diagram, svg }) {
 
 // unpure
 function placePiece({ name, team, drawing, InitialPos,
-    emptyField, enemyField, specialFields, svg, rows, offset, bias,
+    emptyField, enemyField, svg, rows, offset, bias,
     topReach, piecePos, transform }) {
 
     let g, piece, realPos,
@@ -569,7 +568,7 @@ function setupIding(assending = true, startat = 0) {
 }
 
 // pure
-function arbiter({ emptyField, enemyField, specialFields, piecePos, topReach }) {
+function arbiter({ emptyField, enemyField, special, piecePos, topReach }) {
     return function (from, to) {
         let emptyFieldEle,
             enemyFieldEle,
@@ -582,8 +581,7 @@ function arbiter({ emptyField, enemyField, specialFields, piecePos, topReach }) 
                 fromPos,
                 toPos
             );
-            let temp;
-        
+
         let walk = () => {
             let strip;
             if (move.column === 0) {
@@ -600,7 +598,7 @@ function arbiter({ emptyField, enemyField, specialFields, piecePos, topReach }) 
             } else if (move.row === 0) {
                 strip = this.getStrip({ group: "files", num: fromPos.row });
                 if (move.column < 0
-                    && parseInt(strip.substring(toPos.column + 1, from.column))
+                    && parseInt(strip.substring(toPos.column + 1, fromPos.column))
                     > 0) {
                     return false;
                 } else if (move.column > 0 
@@ -654,7 +652,6 @@ function arbiter({ emptyField, enemyField, specialFields, piecePos, topReach }) 
                 && emptyFieldEle.includes(reach))
                 || emptyFieldEle === reach)
             && des === undefined)) {
-
             if (!Array.isArray(emptyFieldEle)
                 || (Array.isArray(emptyFieldEle)
                     && !emptyFieldEle.includes("j"))) {
@@ -829,7 +826,7 @@ class chessBus extends HTMLElement {
                 bias: this.config["pieces"][piece]["bias"],
                 emptyField: this.config["pieces"][piece]["movement"]["empty field"],
                 enemyField: this.config["pieces"][piece]["movement"]["enemy field"],
-                specialFields: this.config["pieces"][piece]["movement"]["special fields"],
+                special:this.config["pieces"][piece]["movement"]["special"],
                 topReach: this.config["pieces"][piece]["movement"]["top reach"],
                 piecePos: this.config["pieces"][piece]["movement"]["piece position"],
                 transform: this.config["pieces"][piece]["transform"]

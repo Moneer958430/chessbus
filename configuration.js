@@ -53,68 +53,6 @@ var configuration = {
                     [0, 1, 0],
                     [0, 0, 0]
                 ],
-                "special fields": [
-                    {
-                        "piece position before": {
-                            "row": 2,
-                            "column": 1
-                        },
-                        "piece position after": {
-                            "row": 2,
-                            "column": 0
-                        },
-                        "before": [
-                            [0, 0],
-                            [0, 0],
-                            [{ "pawn black": 2 }, { "pawn white": 3 }],
-                            [0, 0],
-                            [0, 0],
-                            [0, 0],
-                            [0, 0],
-                            [0, 0]
-                        ],
-                        "after": [
-                            [0, 0],
-                            [{ "pawn white": 3 }, 0],
-                            [0, 0],
-                            [0, 0],
-                            [0, 0],
-                            [0, 0],
-                            [0, 0],
-                            [0, 0]
-                        ],
-                    },
-                    {
-                        "piece position before": {
-                            "row": 2,
-                            "column": 0
-                        },
-                        "piece position after": {
-                            "row": 2,
-                            "column": 1
-                        },
-                        "before": [
-                            [0, 0],
-                            [0, 0],
-                            [{ "pawn white": 3 }, { "pawn black": 2 }],
-                            [0, 0],
-                            [0, 0],
-                            [0, 0],
-                            [0, 0],
-                            [0, 0]
-                        ],
-                        "after": [
-                            [0, 0],
-                            [0, { "pawn white": 3 }],
-                            [0, 0],
-                            [0, 0],
-                            [0, 0],
-                            [0, 0],
-                            [0, 0],
-                            [0, 0]
-                        ],
-                    }
-                ]
             },
             "offset": {
                 "x": 0,
@@ -433,12 +371,12 @@ var configuration = {
                 "empty field": [
                     [2, 2, 2],
                     [2, 1, 2],
-                    [2, 2, 2],
+                    [2, 2, 2]
                 ],
                 "enemy field": [
                     [2, 2, 2],
                     [2, 1, 2],
-                    [2, 2, 2],
+                    [2, 2, 2]
                 ],
             },
             "offset": {
