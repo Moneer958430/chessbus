@@ -357,19 +357,18 @@ function Frank({group, pos, bi}) {
 }
 
 function Diag({sign, pos, bi}) {
-    this.num = Diag.diagNum(pos, sign); 
-    this.mag = Diag.diagMag(pos, sign);
+    this.num = Diag.number(pos, sign); 
+    this.mag = Diag.mag(pos, sign);
     this.bi = bi;
+    this.i = Diag.index(pos, sign)
     if (sign === "+") {
         this.group = "pDiags";
-        this.i = pos.column;
     } else if (sign === "-") {
         this.group = "nDiags";
-        this.i = COLUMNS - pos.column;
     }
 }
 
-Diag.diagNum = function (pos, sign) {
+Diag.number = function (pos, sign) {
     if (sign === "+") { // x + y = z
         return pos.column + pos.row;
     } else if (sign === "-") { // -x + y + C = z
@@ -377,13 +376,21 @@ Diag.diagNum = function (pos, sign) {
     }
 }; 
 
-Diag.diagMag = function(pos, sign) {
+Diag.mag = function(pos, sign) {
     if (sign === "+") { // -| x + y - C | + C + 1 = z
         return (Math.abs(pos.column + pos.row - COLUMNS) * -1) + ROWS + 1;
     } else if (sign === "-") { // - | x - y | + C + 1 = z
         return (Math.abs(pos.column - pos.row) * -1) + ROWS + 1;
     }
 };
+
+Diag.index = function (pos, sign) {
+    if (sign === "+") { // C - x = y, x = y, C - y = z
+        return pos.row <= COLUMNS - pos.column ? pos.column : ROWS - pos.row;
+    } else if (sign === "-") { // x = y, C - x = z, C - y = z
+        return pos.row <= pos.column ? COLUMNS - pos.column : ROWS - pos.row;
+    }
+}
 
 let maestro = {
     highlightsList: [],
@@ -575,56 +582,67 @@ function arbiter({ emptyField, enemyField, specialFields, piecePos, topReach }) 
                 fromPos,
                 toPos
             );
+            let temp;
         
         let walk = () => {
             let strip;
             if (move.column === 0) {
                 strip = this.getStrip({ group: "ranks", num: fromPos.column });
                 if (move.row > 0
-                    && parseInt(strip.substr(toPos.row + 1, move.row - 1))
+                    && parseInt(strip.substring(toPos.row + 1, fromPos.row))
                     > 0) {
                     return false;
                 } else if (move.row < 0
-                    && parseInt(strip.substr(fromPos.row + 1, Math.abs(move.row) - 1))
+                    && parseInt(strip.substring(fromPos.row + 1, toPos.row))
                     > 0) {
                     return false;
                 }
             } else if (move.row === 0) {
                 strip = this.getStrip({ group: "files", num: fromPos.row });
                 if (move.column < 0
-                    && parseInt(strip.substr(toPos.column + 1, Math.abs(move.column) - 1))
+                    && parseInt(strip.substring(toPos.column + 1, from.column))
                     > 0) {
                     return false;
                 } else if (move.column > 0 
-                    && parseInt(strip.substr(fromPos.column + 1, move.column - 1))
+                    && parseInt(strip.substring(fromPos.column + 1, toPos.column))
                     > 0) {
                     return false;
                 }
             } else if ((sign = (sign = move.column / move.row) > 0 ? "+" : false) ) {
                 strip = this.getStrip({ 
                     group: "pDiags",
-                    num: Diag.diagNum(fromPos, sign) 
+                    num: Diag.number(fromPos, sign) 
                 });
-                // if (move.column > 0 
-                //     && parseInt(strip.substr(fromPos.column + 1, move.column - 1)) 
-                //     > 0) {
-                //     return false;
-                // } else if (move.column < 0 
-                //     && parseInt(strip.substr(toPos.column + 1, Math.abs(move.column) - 1)) 
-                //     > 0) {
-                //     return false;
-                // }
+                if (move.column > 0
+                    && parseInt(strip.substring(
+                            Diag.index(fromPos, sign) + 1, Diag.index(toPos, sign))
+                        ) 
+                    > 0) {
+                    return false;
+                } else if (move.column < 0 
+                    && parseInt(strip.substring(
+                            Diag.index(toPos, sign) + 1, Diag.index(fromPos, sign))
+                        ) 
+                    > 0) {
+                    return false;
+                }
             } else if ((sign = (sign = move.column / move.row) < 0 ? "-" : false)) {
                 strip = this.getStrip({ 
                     group: "nDiags",
-                    num: Diag.diagNum(fromPos, sign) 
+                    num: Diag.number(fromPos, sign) 
                 });
-                if (move.column > 0) {
-    
-                    //return false;
-                } else if (move.column < 0 
-                    ) {
-                    //return false;
+                if (move.column > 0
+                    && parseInt(strip.substring(
+                        Diag.index(toPos, sign) + 1, Diag.index(fromPos, sign))
+                    ) 
+                    > 0) {     
+                    return false;
+                } else if (move.column < 0
+                    && parseInt(strip.substring(
+                        Diag.index(fromPos, sign) + 1, Diag.index(toPos, sign))
+                    ) 
+                    > 0) {
+                    return false;
                 }
             }
             return true;
@@ -636,9 +654,11 @@ function arbiter({ emptyField, enemyField, specialFields, piecePos, topReach }) 
                 && emptyFieldEle.includes(reach))
                 || emptyFieldEle === reach)
             && des === undefined)) {
+
             if (!Array.isArray(emptyFieldEle)
                 || (Array.isArray(emptyFieldEle)
                     && !emptyFieldEle.includes("j"))) {
+                    
                 if (walk() === false) {
                     return false;
                 }
@@ -657,7 +677,7 @@ function arbiter({ emptyField, enemyField, specialFields, piecePos, topReach }) 
                 || enemyFieldEle === reach)
             && des !== undefined
             && des.getTeam() !== this.getTeam()) {
-
+                
             if (!Array.isArray(enemyFieldEle)
             || (Array.isArray(enemyFieldEle)
                 && !enemyFieldEle.includes("j"))) {
@@ -737,8 +757,8 @@ function centerPieceViaCrd(crd, offset, bias) {
 
 // pure
 function slope(from, to) { 
-    return (to.x - from.x) === 0 ? undefined : 
-        ((to.y * -1) - (from.y * -1)) / (to.x - from.x);
+    return (to.column - from.column) === 0 ? undefined : 
+        ((to.row * -1) - (from.row * -1)) / (to.column - from.column);
 }
 
 // pure
@@ -760,7 +780,7 @@ function zeros(num) {
 
 // pure
 function replaceChar(str, i, value) {
-    return str.substr(0, i) + value + str.substr(i + value.length);
+    return str.substring(0, i) + value + str.substring(i + value.length);
 }
 
 /* chessbus object */
