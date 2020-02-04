@@ -4,6 +4,7 @@ let WIDTH;
 let HEIGHT;
 let ROWS;
 let COLUMNS;
+let SVG;
 
 let boardtop = {
     tiles: {
@@ -50,6 +51,15 @@ let Com = {
 }
 
 let ComPiece = {
+    getElem: function () {
+        return this._element;
+    },
+    setElem: function (elem) {
+        elem.addEventListener("mousedown",
+            this.mouseDown.bind(this)
+        );
+        this._element = elem;
+    },
     getTransform: function () {
         let context = this;
         let transform = this.getElem().getAttribute("transform");
@@ -190,6 +200,7 @@ let ComPiece = {
     },
     mouseDown: function (event) {
         if (event.which === 1) {
+            redraw(this, this.getElem());
             maestro.pieceToMove.set = true;
             maestro.pieceToMove.move =
                 this.startMoving();
@@ -432,14 +443,14 @@ let maestro = {
 }
 
 // unpure
-function placeTiles({ diagram, svg }) {
+function placeTiles(diagram) {
 
     let r = 0, c = 0, x = 0, y = 0, tile, rect, getId
         = setupIding(false, diagram.length);
 
     for (let i = 0; i < diagram.length; i += 1) {
         rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        svg.appendChild(rect);
+        SVG.appendChild(rect);
 
         tile = boardtop.tiles.tilesList["tile" + " " + getId()]
             = Object.create(ComTile);
@@ -471,7 +482,7 @@ function placeTiles({ diagram, svg }) {
 
 // unpure
 function placePiece({ name, team, drawing, InitialPos,
-    emptyField, enemyField, svg, rows, offset, bias,
+    emptyField, enemyField, rows, offset, bias,
     topReach, piecePos, transform }) {
 
     let g, piece, realPos,
@@ -512,17 +523,14 @@ function placePiece({ name, team, drawing, InitialPos,
             // dynamically added property:
             piece.checkEmptyMove = checkMove;
             piece.setReach(2);
-            piece.getElem().addEventListener("mousedown",
-                piece.mouseDown.bind(piece)
-            );
 
-            placeOnTile(piece, svg, offset, transform);
+            placeOnTile(piece, offset, transform);
         }
     );
 }
 
 // unpure
-function placeOnTile(piece, svg, offset, transform) {
+function placeOnTile(piece, offset, transform) {
     let tiles = boardtop["tiles"].tilesList;
 
     for (let tile in tiles) {
@@ -549,9 +557,17 @@ function placeOnTile(piece, svg, offset, transform) {
 
             piece.setTransform(tran);
 
-            svg.appendChild(piece.getElem());
+            SVG.appendChild(piece.getElem());
         }
     }
+}
+
+// unpure
+function redraw(obj, elem) {
+    let clone = elem.cloneNode(true);
+    SVG.appendChild(clone);
+    elem.remove();
+    obj.setElem(clone);
 }
 
 // pure
@@ -795,7 +811,8 @@ class chessBus extends HTMLElement {
     connectedCallback() {
         this.config = configuration;
 
-        this.innerHTML = "<svg></svg>";
+        SVG = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        this.appendChild(SVG)
 
         HEIGHT = this.config["tiles"]["height"];
         WIDTH = this.config["tiles"]["width"];
@@ -809,10 +826,7 @@ class chessBus extends HTMLElement {
         chessbus.addEventListener("mouseleave", maestro.mouseLeave);
 
         // placing the tiles
-        placeTiles({
-            diagram: this.config["tiles"]["tiles configuration"],
-            svg: this.querySelector("svg")
-        });
+        placeTiles(this.config["tiles"]["tiles configuration"]);
 
         // placing pieces
         for (let piece in this.config["pieces"]) {
@@ -821,7 +835,6 @@ class chessBus extends HTMLElement {
                 team: this.config["pieces"][piece]["team"],
                 drawing: this.config["pieces"][piece]["drawing"],
                 InitialPos: this.config["pieces"][piece]["initial positions"],
-                svg: this.querySelector("svg"),
                 offset: this.config["pieces"][piece]["offset"],
                 bias: this.config["pieces"][piece]["bias"],
                 emptyField: this.config["pieces"][piece]["movement"]["empty field"],
