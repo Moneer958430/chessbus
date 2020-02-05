@@ -16,6 +16,12 @@ let boardtop = {
 }
 
 let Com = {
+    getKind: function () {
+        return this._kind;
+    },
+    setKind: function (value) {
+        this._kind = value;
+    },
     getElem: function () {
         return this._element;
     },
@@ -47,7 +53,50 @@ let Com = {
     },
     setFill: function (value) {
         this.getElem().setAttribute("fill", value);
-    }
+    },
+    getTurns: function () {
+        let context = Com;
+        return context._turns;
+    },
+    incTurns: function () {
+        let context = Com;
+        if (context._turns === undefined) {
+            context._turns = 0;
+        } 
+        context._turns += 1;
+    },
+    specCircs: {
+        getMySymb: () => {
+            return this._mySymb;
+        },
+        setCode: (value) => {
+            this._mySymb = value;
+        },
+        getOtherSymb: () => {
+            return this._otherSymb;
+        },
+        setOtherSymb: (value) => {
+            this._otherSymb = value;
+        },
+        getTurn: () => {
+            return this._turn;
+        },
+        setTurn: (value) => {
+            this._turn = value;
+        },
+        getCond: () => {
+            this._cond;
+        },
+        setCond: (value) => {
+            this._cond = value;
+        },
+        getConseq: () => {
+            return this._conseq;
+        },
+        setConseq: (value) => {
+            this._conseq = value;
+        }
+    } 
 }
 
 let ComPiece = {
@@ -174,6 +223,7 @@ let ComPiece = {
                                 }
                             )
                         });
+                        this.incTurns();
                         break;
                     }
                 case "mouseleave":
@@ -455,6 +505,7 @@ function placeTiles(diagram) {
         tile = boardtop.tiles.tilesList["tile" + " " + getId()]
             = Object.create(ComTile);
 
+        tile.setKind("tile");
         tile.setElem(rect);
         tile.setPos(new Pos(r, c));
         tile.setCrd(new Crd(x, y));
@@ -501,6 +552,8 @@ function placePiece({ name, team, drawing, InitialPos,
 
             piece = boardtop.pieces.piecesList[name + " " + getId()]
                 = Object.create(ComPiece);
+
+            piece.setKind(name);
             piece.setElem(g);
             piece.setTeam(team);
             realPos = new Pos(
@@ -523,7 +576,6 @@ function placePiece({ name, team, drawing, InitialPos,
             // dynamically added property:
             piece.checkEmptyMove = checkMove;
             piece.setReach(2);
-
             placeOnTile(piece, offset, transform);
         }
     );
@@ -796,6 +848,34 @@ function replaceChar(str, i, value) {
     return str.substring(0, i) + value + str.substring(i + value.length);
 }
 
+// pure
+function specCircParser (circ) {
+    let piece, turn, cond, conseq; 
+    piece = /\(.+\)/.exec(circ)[0].split(/,/).map(function (e) {
+        return {
+            kind: /[\w|\s]+/.exec(e)[0].replace(/\"/g, "").trim(),
+            symb: /\"[\w|\d]+\"/.exec(e)[0].replace(/\"/g, "")
+        };
+    });
+
+    cond = /{[\s\S]+?}/.exec(circ)[0];
+    cond = JSON.parse(
+        cond.substring(1, cond.length - 1).replace(/[\s|\n|\r]/g, "")
+    );
+
+    conseq = /then[\s\S]*{[\s\S]+}/.exec(circ)[0];
+    conseq = /{[\s\S]+?}/.exec(conseq)[0];
+    conseq = JSON.parse(
+        conseq.substring(1, conseq.length - 1).replace(/[\s|\n|\r]/g, "")
+    );
+
+    turn = parseInt(/\d+\s*turns?/.exec(circ)[0].replace(/turns?/, "").trim());
+    console.log(piece);
+    console.log(turn);
+    console.log(cond)
+    console.log(conseq);
+}
+
 /* chessbus object */
 
 class chessBus extends HTMLElement {
@@ -845,6 +925,8 @@ class chessBus extends HTMLElement {
                 transform: this.config["pieces"][piece]["transform"]
             });
         }
+
+        specCircParser(this.config["special circumstances"][0]);
     }
 
 }
