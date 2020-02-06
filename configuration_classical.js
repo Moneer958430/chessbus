@@ -717,35 +717,7 @@ var configuration = {
                 "x": 0.5,
                 "y": 0.5
             }
-        },
-    },
-    "special circumstances": [
-        `
-            if (pawn = "p1", pawn = "p2") for 1 turn {
-                [
-                    [0, 0],
-                    [[3, "p1"], [2, "p2"]]
-                ]
-            } then {
-                [
-                    [0, "p1"],
-                    [0, 0]
-                ]
-            }
-        `,
-        `
-            if (pawn = "p1", pawn = "p2") for 1 turn {
-                [
-                    [0, 0],
-                    [[2, p2], [3, p1]],
-                ]
-            } then {
-                [
-                    [p1, 0],
-                    [0, 0],
-                ]
-            }
-        `,
-    ],
+        }
+    }
 }
 
